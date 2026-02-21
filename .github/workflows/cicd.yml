@@ -1,0 +1,53 @@
+name: CI/CD Pipeline - Inventory Catalog
+
+on:
+  push:
+    branches: [ "main", "staging" ]
+  pull_request:
+    branches: [ "main", "staging" ]
+
+jobs:
+  # Continuous Integration (CI) - Test, Coverage & SonarCloud
+  Continuous-Integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests and Generate Coverage
+        run: ./gradlew test jacocoTestReport
+
+      - name: Analyze with SonarCloud
+        # Mengirim report ke SonarCloud,
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew sonar
+
+  # Dummy Continuous Deployment (CD)
+  Dummy-Continuous-Deployment:
+    needs: Continuous-Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy Deploy to Environment
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Menjalankan Dummy Deployment ke PRODUCTION environment (main branch) [cite: 322]"
+          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            echo "Menjalankan Dummy Deployment ke STAGING environment (staging branch) [cite: 322]"
+          else
+            echo "Bukan branch target deployment."
+          fi
+          echo "Simulasi deployment berhasil! CI quality check telah dilewati. [cite: 341]"

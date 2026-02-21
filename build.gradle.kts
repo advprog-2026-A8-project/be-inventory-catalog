@@ -2,6 +2,8 @@ plugins {
     java
     id("org.springframework.boot") version "3.5.10"
     id("io.spring.dependency-management") version "1.1.7"
+    jacoco
+    id("org.sonarqube") version "4.4.1.3373" // SonarCloud
 }
 
 group = "id.ac.ui.cs.advprog"
@@ -34,6 +36,28 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// otomatis generate report Jacoco setelah testing
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+// Konfigurasi Jacoco buat bikin file XML
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
+    }
+}
+
+// Konfig SonarCloud Inventory Catalog
+sonar {
+    properties {
+        property("sonar.projectKey", "advprog-2026-A8-project_be-inventory-catalog")
+        property("sonar.organization", "advprog-2026-a8-project")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${project.layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml")
+    }
 }
