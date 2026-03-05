@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +31,7 @@ class ProductControllerTest {
     private ProductController productController;
 
     private Product product;
+    private ProductDTO productDTO;
 
     @BeforeEach
     void setUp() {
@@ -40,18 +43,25 @@ class ProductControllerTest {
                 .stock(10)
                 .jastiperId("jastiper-123")
                 .build();
+
+        productDTO = new ProductDTO();
+        productDTO.setName("Kipas Angin");
+        productDTO.setDescription("Kipas angin dinding");
+        productDTO.setPrice(150000.0);
+        productDTO.setStock(10);
+        productDTO.setJastiperId("jastiper-123");
     }
 
     @Test
     void testCreateProduct() {
-        when(productService.createProduct(product)).thenReturn(product);
+        when(productService.createProduct(any(Product.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.createProduct(product);
+        ResponseEntity<Product> response = productController.createProduct(productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         assertEquals(product, response.getBody());
-        verify(productService, times(1)).createProduct(product);
+        verify(productService, times(1)).createProduct(any(Product.class));
     }
 
     @Test

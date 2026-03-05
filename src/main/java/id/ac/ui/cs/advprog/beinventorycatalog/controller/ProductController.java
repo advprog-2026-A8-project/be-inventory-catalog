@@ -1,8 +1,9 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,19 +11,25 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
+@RequiredArgsConstructor
 public class ProductController {
 
-    @Autowired
-    private ProductService productService;
+    private final ProductService productService;
 
-    // Create Product (Jastiper nambahin barang)
     @PostMapping("/create")
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Product> createProduct(@RequestBody ProductDTO productDTO) {
+        Product product = Product.builder()
+                .name(productDTO.getName())
+                .description(productDTO.getDescription())
+                .price(productDTO.getPrice())
+                .stock(productDTO.getStock())
+                .jastiperId(productDTO.getJastiperId())
+                .build();
+
         Product savedProduct = productService.createProduct(product);
         return ResponseEntity.ok(savedProduct);
     }
 
-    // View Products (liat daftar katalog)
     @GetMapping("/list")
     public ResponseEntity<List<Product>> getAllProducts() {
         List<Product> products = productService.getAllProducts();
