@@ -20,6 +20,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 
 @ExtendWith(MockitoExtension.class)
 class ProductControllerTest {
@@ -77,5 +79,41 @@ class ProductControllerTest {
         assertEquals(1, response.getBody().size());
         assertEquals(product, response.getBody().getFirst());
         verify(productService, times(1)).getAllProducts();
+    }
+
+    @Test
+    void testGetProductById() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
+
+        ResponseEntity<Product> response = productController.getProductById(product.getId());
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(product, response.getBody());
+        verify(productService, times(1)).getProductById(product.getId());
+    }
+
+    @Test
+    void testUpdateProduct() {
+        when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
+
+        ResponseEntity<Product> response = productController.updateProduct(product.getId(), productDTO);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(product, response.getBody());
+        verify(productService, times(1)).updateProduct(eq(product.getId()), any(ProductDTO.class));
+    }
+
+    @Test
+    void testDeleteProduct() {
+        doNothing().when(productService).deleteProduct(product.getId());
+
+        ResponseEntity<String> response = productController.deleteProduct(product.getId());
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("Barang berhasil dihapus dari katalog!", response.getBody());
+        verify(productService, times(1)).deleteProduct(product.getId());
     }
 }
