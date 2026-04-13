@@ -87,9 +87,8 @@ class ProductServiceImplTest {
     @Test
     void testGetProductByIdNotFound() {
         when(productRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
-
         assertThrows(IllegalArgumentException.class, () -> {
-            productService.getProductById(UUID.randomUUID());
+            productService.getProductById(testId);
         });
     }
 
