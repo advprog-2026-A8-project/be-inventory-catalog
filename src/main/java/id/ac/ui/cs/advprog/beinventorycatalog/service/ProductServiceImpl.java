@@ -1,11 +1,13 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.service;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,5 +23,28 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<Product> getAllProducts() {
         return productRepository.findAll();
+    }
+
+    @Override
+    public Product getProductById(UUID id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Waduh, barang dengan ID ini nggak ketemu cuy!"));
+    }
+
+    @Override
+    public Product updateProduct(UUID id, ProductDTO productDTO) {
+        Product existingProduct = getProductById(id);
+        existingProduct.setName(productDTO.getName());
+        existingProduct.setDescription(productDTO.getDescription());
+        existingProduct.setPrice(productDTO.getPrice());
+        existingProduct.setStock(productDTO.getStock());
+
+        return productRepository.save(existingProduct);
+    }
+
+    @Override
+    public void deleteProduct(UUID id) {
+        Product existingProduct = getProductById(id);
+        productRepository.delete(existingProduct);
     }
 }
