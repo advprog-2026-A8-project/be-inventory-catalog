@@ -47,4 +47,9 @@ public class ProductServiceImpl implements ProductService {
         Product existingProduct = getProductById(id);
         productRepository.delete(existingProduct);
     }
+
+    @Override
+    public List<Product> searchProductsByName(String name) {
+        return productRepository.findByNameContainingIgnoreCase(name);
+    }
 }
