@@ -114,4 +114,18 @@ class ProductServiceImplTest {
         verify(productRepository, times(1)).findById(testId);
         verify(productRepository, times(1)).delete(product);
     }
+
+    @Test
+    void testSearchProductsByName() {
+        String searchKeyword = "Kipas";
+        when(productRepository.findByNameContainingIgnoreCase(searchKeyword)).thenReturn(List.of(product));
+
+        List<Product> result = productService.searchProductsByName(searchKeyword);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals(product.getName(), result.getFirst().getName());
+        verify(productRepository, times(1)).findByNameContainingIgnoreCase(searchKeyword);
+    }
 }

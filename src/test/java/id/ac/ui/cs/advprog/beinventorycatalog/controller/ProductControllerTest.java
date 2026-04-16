@@ -116,4 +116,19 @@ class ProductControllerTest {
         assertEquals("Barang berhasil dihapus dari katalog!", response.getBody());
         verify(productService, times(1)).deleteProduct(product.getId());
     }
+
+    @Test
+    void testSearchProductsByName() {
+        String searchKeyword = "Kipas";
+        when(productService.searchProductsByName(searchKeyword)).thenReturn(List.of(product));
+
+        ResponseEntity<List<Product>> response = productController.searchProductsByName(searchKeyword);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(product, response.getBody().getFirst());
+        verify(productService, times(1)).searchProductsByName(searchKeyword);
+    }
 }
