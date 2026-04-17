@@ -5,7 +5,9 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_product_name", columnList = "name")
+})
 @Data
 @Builder
 @NoArgsConstructor

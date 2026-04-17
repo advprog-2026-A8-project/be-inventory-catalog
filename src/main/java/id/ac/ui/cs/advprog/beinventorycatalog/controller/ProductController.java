@@ -54,4 +54,11 @@ public class ProductController {
         productService.deleteProduct(id);
         return ResponseEntity.ok("Barang berhasil dihapus dari katalog!");
     }
+
+    // Endpoint nyari barang pake nama
+    @GetMapping("/search")
+    public ResponseEntity<List<Product>> searchProductsByName(@RequestParam String name) {
+        List<Product> products = productService.searchProductsByName(name);
+        return ResponseEntity.ok(products);
+    }
 }
