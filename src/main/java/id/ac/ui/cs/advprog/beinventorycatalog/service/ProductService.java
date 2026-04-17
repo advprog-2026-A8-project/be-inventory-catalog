@@ -12,4 +12,5 @@ public interface ProductService {
     Product updateProduct(UUID id, ProductDTO productDTO);
     void deleteProduct(UUID id);
     List<Product> searchProductsByName(String name);
+    List<Product> getProductsByJastiper(String jastiperId);
 }

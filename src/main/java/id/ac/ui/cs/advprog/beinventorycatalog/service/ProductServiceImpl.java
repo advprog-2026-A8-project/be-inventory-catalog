@@ -52,4 +52,9 @@ public class ProductServiceImpl implements ProductService {
     public List<Product> searchProductsByName(String name) {
         return productRepository.findByNameContainingIgnoreCase(name);
     }
+
+    @Override
+    public List<Product> getProductsByJastiper(String jastiperId) {
+        return productRepository.findByJastiperId(jastiperId);
+    }
 }

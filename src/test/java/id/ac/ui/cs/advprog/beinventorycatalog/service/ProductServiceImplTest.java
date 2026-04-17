@@ -128,4 +128,18 @@ class ProductServiceImplTest {
         assertEquals(product.getName(), result.getFirst().getName());
         verify(productRepository, times(1)).findByNameContainingIgnoreCase(searchKeyword);
     }
+
+    @Test
+    void testGetProductsByJastiper() {
+        String jastiperId = "jastiper-123";
+        when(productRepository.findByJastiperId(jastiperId)).thenReturn(List.of(product));
+
+        List<Product> result = productService.getProductsByJastiper(jastiperId);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals(product.getName(), result.getFirst().getName());
+        verify(productRepository, times(1)).findByJastiperId(jastiperId);
+    }
 }

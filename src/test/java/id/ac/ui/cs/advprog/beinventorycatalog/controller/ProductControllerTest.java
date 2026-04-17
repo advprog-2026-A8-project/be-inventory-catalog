@@ -131,4 +131,19 @@ class ProductControllerTest {
         assertEquals(product, response.getBody().getFirst());
         verify(productService, times(1)).searchProductsByName(searchKeyword);
     }
+
+    @Test
+    void testGetProductsByJastiper() {
+        String jastiperId = "jastiper-123";
+        when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
+
+        ResponseEntity<List<Product>> response = productController.getProductsByJastiper(jastiperId);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(product, response.getBody().getFirst());
+        verify(productService, times(1)).getProductsByJastiper(jastiperId);
+    }
 }
