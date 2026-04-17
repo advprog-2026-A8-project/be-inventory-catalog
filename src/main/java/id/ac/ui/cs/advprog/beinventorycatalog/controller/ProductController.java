@@ -55,10 +55,15 @@ public class ProductController {
         return ResponseEntity.ok("Barang berhasil dihapus dari katalog!");
     }
 
-    // Endpoint nyari barang pake nama
     @GetMapping("/search")
     public ResponseEntity<List<Product>> searchProductsByName(@RequestParam String name) {
         List<Product> products = productService.searchProductsByName(name);
+        return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/jastiper/{jastiperId}")
+    public ResponseEntity<List<Product>> getProductsByJastiper(@PathVariable String jastiperId) {
+        List<Product> products = productService.getProductsByJastiper(jastiperId);
         return ResponseEntity.ok(products);
     }
 }
