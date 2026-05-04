@@ -142,4 +142,37 @@ class ProductServiceImplTest {
         assertEquals(product.getName(), result.getFirst().getName());
         verify(productRepository, times(1)).findByJastiperId(jastiperId);
     }
+
+    @Test
+    void testReduceProductStock_Success() {
+        UUID productId = UUID.randomUUID();
+        Product product = new Product();
+        product.setId(productId);
+        product.setStock(10);
+
+        when(productRepository.findByIdWithPessimisticLock(productId)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenReturn(product);
+
+        Product updatedProduct = productService.reduceProductStock(productId, 2);
+
+        assertEquals(8, updatedProduct.getStock());
+        verify(productRepository, times(1)).save(product);
+    }
+
+    @Test
+    void testReduceProductStock_InsufficientStock() {
+        UUID productId = UUID.randomUUID();
+        Product product = new Product();
+        product.setId(productId);
+        product.setStock(1);
+
+        when(productRepository.findByIdWithPessimisticLock(productId)).thenReturn(Optional.of(product));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            productService.reduceProductStock(productId, 5);
+        });
+
+        assertTrue(exception.getMessage().contains("stok nggak cukup"));
+        verify(productRepository, never()).save(any());
+    }
 }
