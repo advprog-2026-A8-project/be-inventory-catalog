@@ -4,6 +4,7 @@ import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductResponseDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +31,9 @@ public class ProductController {
                 .build();
     }
 
+    // TAMBAHIN @Valid DI SINI
     @PostMapping("/create")
-    public ResponseEntity<ProductResponseDTO> createProduct(@RequestBody ProductDTO productDTO) {
+    public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductDTO productDTO) {
         Product product = Product.builder()
                 .name(productDTO.getName())
                 .description(productDTO.getDescription())
@@ -59,8 +61,9 @@ public class ProductController {
         return ResponseEntity.ok(convertToResponseDTO(product));
     }
 
+    // TAMBAHIN @Valid DI SINI JUGA
     @PutMapping("/update/{id}")
-    public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable UUID id, @RequestBody ProductDTO productDTO) {
+    public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable UUID id, @Valid @RequestBody ProductDTO productDTO) {
         Product updatedProduct = productService.updateProduct(id, productDTO);
         return ResponseEntity.ok(convertToResponseDTO(updatedProduct));
     }
