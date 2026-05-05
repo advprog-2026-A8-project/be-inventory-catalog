@@ -112,6 +112,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@ee4ca427a2f43b6a16632044ca514c076267da23 # v6.19.0
         with:
+          context: .
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
