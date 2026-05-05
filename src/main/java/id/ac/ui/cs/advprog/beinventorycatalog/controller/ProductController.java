@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductResponseDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/products")
@@ -17,8 +19,19 @@ public class ProductController {
 
     private final ProductService productService;
 
+    private ProductResponseDTO convertToResponseDTO(Product product) {
+        return ProductResponseDTO.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .stock(product.getStock())
+                .jastiperId(product.getJastiperId())
+                .build();
+    }
+
     @PostMapping("/create")
-    public ResponseEntity<Product> createProduct(@RequestBody ProductDTO productDTO) {
+    public ResponseEntity<ProductResponseDTO> createProduct(@RequestBody ProductDTO productDTO) {
         Product product = Product.builder()
                 .name(productDTO.getName())
                 .description(productDTO.getDescription())
@@ -28,25 +41,28 @@ public class ProductController {
                 .build();
 
         Product savedProduct = productService.createProduct(product);
-        return ResponseEntity.ok(savedProduct);
+        return ResponseEntity.ok(convertToResponseDTO(savedProduct));
     }
 
     @GetMapping("/list")
-    public ResponseEntity<List<Product>> getAllProducts() {
+    public ResponseEntity<List<ProductResponseDTO>> getAllProducts() {
         List<Product> products = productService.getAllProducts();
-        return ResponseEntity.ok(products);
+        List<ProductResponseDTO> response = products.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable UUID id) {
+    public ResponseEntity<ProductResponseDTO> getProductById(@PathVariable UUID id) {
         Product product = productService.getProductById(id);
-        return ResponseEntity.ok(product);
+        return ResponseEntity.ok(convertToResponseDTO(product));
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable UUID id, @RequestBody ProductDTO productDTO) {
+    public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable UUID id, @RequestBody ProductDTO productDTO) {
         Product updatedProduct = productService.updateProduct(id, productDTO);
-        return ResponseEntity.ok(updatedProduct);
+        return ResponseEntity.ok(convertToResponseDTO(updatedProduct));
     }
 
     @DeleteMapping("/delete/{id}")
@@ -56,14 +72,29 @@ public class ProductController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Product>> searchProductsByName(@RequestParam String name) {
+    public ResponseEntity<List<ProductResponseDTO>> searchProductsByName(@RequestParam String name) {
         List<Product> products = productService.searchProductsByName(name);
-        return ResponseEntity.ok(products);
+        List<ProductResponseDTO> response = products.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/jastiper/{jastiperId}")
-    public ResponseEntity<List<Product>> getProductsByJastiper(@PathVariable String jastiperId) {
+    public ResponseEntity<List<ProductResponseDTO>> getProductsByJastiper(@PathVariable String jastiperId) {
         List<Product> products = productService.getProductsByJastiper(jastiperId);
-        return ResponseEntity.ok(products);
+        List<ProductResponseDTO> response = products.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin/monitor")
+    public ResponseEntity<List<ProductResponseDTO>> monitorProductsAdmin() {
+        List<Product> products = productService.getAllProducts();
+        List<ProductResponseDTO> response = products.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 }
