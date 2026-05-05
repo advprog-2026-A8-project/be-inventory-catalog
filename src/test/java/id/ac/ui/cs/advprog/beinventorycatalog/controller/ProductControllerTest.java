@@ -10,6 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductResponseDTO;
 
 import java.util.List;
 import java.util.UUID;
@@ -58,7 +59,7 @@ class ProductControllerTest {
     void testCreateProduct() {
         when(productService.createProduct(any(Product.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.createProduct(productDTO);
+        ResponseEntity<ProductResponseDTO> response = productController.createProduct(productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -71,7 +72,7 @@ class ProductControllerTest {
         List<Product> products = List.of(product);
         when(productService.getAllProducts()).thenReturn(products);
 
-        ResponseEntity<List<Product>> response = productController.getAllProducts();
+        ResponseEntity<List<ProductResponseDTO>> response = productController.getAllProducts();
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -85,7 +86,7 @@ class ProductControllerTest {
     void testGetProductById() {
         when(productService.getProductById(product.getId())).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.getProductById(product.getId());
+        ResponseEntity<ProductResponseDTO> response = productController.getProductById(product.getId());
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -97,7 +98,7 @@ class ProductControllerTest {
     void testUpdateProduct() {
         when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.updateProduct(product.getId(), productDTO);
+        ResponseEntity<ProductResponseDTO> response = productController.updateProduct(product.getId(), productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -122,7 +123,7 @@ class ProductControllerTest {
         String searchKeyword = "Kipas";
         when(productService.searchProductsByName(searchKeyword)).thenReturn(List.of(product));
 
-        ResponseEntity<List<Product>> response = productController.searchProductsByName(searchKeyword);
+        ResponseEntity<List<ProductResponseDTO>> response = productController.searchProductsByName(searchKeyword);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -137,7 +138,7 @@ class ProductControllerTest {
         String jastiperId = "jastiper-123";
         when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
 
-        ResponseEntity<List<Product>> response = productController.getProductsByJastiper(jastiperId);
+        ResponseEntity<List<ProductResponseDTO>> response = productController.getProductsByJastiper(jastiperId);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
