@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
+import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductResponseDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,7 +11,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
-import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductResponseDTO;
 
 import java.util.List;
 import java.util.UUID;
@@ -63,7 +63,10 @@ class ProductControllerTest {
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
-        assertEquals(product, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals(product.getId(), response.getBody().getId());
+        assertEquals(product.getName(), response.getBody().getName());
+        assertEquals(product.getPrice(), response.getBody().getPrice());
         verify(productService, times(1)).createProduct(any(Product.class));
     }
 
@@ -78,7 +81,8 @@ class ProductControllerTest {
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
         assertEquals(1, response.getBody().size());
-        assertEquals(product, response.getBody().getFirst());
+        assertEquals(product.getId(), response.getBody().get(0).getId());
+        assertEquals(product.getName(), response.getBody().get(0).getName());
         verify(productService, times(1)).getAllProducts();
     }
 
@@ -90,7 +94,9 @@ class ProductControllerTest {
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
-        assertEquals(product, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals(product.getId(), response.getBody().getId());
+        assertEquals(product.getName(), response.getBody().getName());
         verify(productService, times(1)).getProductById(product.getId());
     }
 
@@ -102,7 +108,10 @@ class ProductControllerTest {
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
-        assertEquals(product, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals(product.getId(), response.getBody().getId());
+        assertEquals(product.getName(), response.getBody().getName());
+        assertEquals(product.getPrice(), response.getBody().getPrice());
         verify(productService, times(1)).updateProduct(eq(product.getId()), any(ProductDTO.class));
     }
 
@@ -129,7 +138,8 @@ class ProductControllerTest {
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
         assertEquals(1, response.getBody().size());
-        assertEquals(product, response.getBody().getFirst());
+        assertEquals(product.getId(), response.getBody().get(0).getId());
+        assertEquals(product.getName(), response.getBody().get(0).getName());
         verify(productService, times(1)).searchProductsByName(searchKeyword);
     }
 
@@ -144,7 +154,8 @@ class ProductControllerTest {
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
         assertEquals(1, response.getBody().size());
-        assertEquals(product, response.getBody().getFirst());
+        assertEquals(product.getId(), response.getBody().get(0).getId());
+        assertEquals(product.getJastiperId(), response.getBody().get(0).getJastiperId());
         verify(productService, times(1)).getProductsByJastiper(jastiperId);
     }
 }
