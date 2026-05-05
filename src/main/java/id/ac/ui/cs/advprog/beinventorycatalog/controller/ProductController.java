@@ -31,7 +31,6 @@ public class ProductController {
                 .build();
     }
 
-    // TAMBAHIN @Valid DI SINI
     @PostMapping("/create")
     public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductDTO productDTO) {
         Product product = Product.builder()
@@ -61,7 +60,6 @@ public class ProductController {
         return ResponseEntity.ok(convertToResponseDTO(product));
     }
 
-    // TAMBAHIN @Valid DI SINI JUGA
     @PutMapping("/update/{id}")
     public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable UUID id, @Valid @RequestBody ProductDTO productDTO) {
         Product updatedProduct = productService.updateProduct(id, productDTO);
