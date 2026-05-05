@@ -158,4 +158,23 @@ class ProductControllerTest {
         assertEquals(product.getJastiperId(), response.getBody().get(0).getJastiperId());
         verify(productService, times(1)).getProductsByJastiper(jastiperId);
     }
+
+    @Test
+    void testMonitorProductsAdmin() {
+        // Setup data bohongan
+        List<Product> products = List.of(product);
+        when(productService.getAllProducts()).thenReturn(products);
+
+        // Panggil endpoint adminnya
+        ResponseEntity<List<ProductResponseDTO>> response = productController.monitorProductsAdmin();
+
+        // Validasi
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(product.getId(), response.getBody().get(0).getId());
+        assertEquals(product.getName(), response.getBody().get(0).getName());
+        verify(productService, times(1)).getAllProducts();
+    }
 }
