@@ -6,6 +6,7 @@ import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,17 +29,29 @@ public class ProductController {
                 .price(product.getPrice())
                 .stock(product.getStock())
                 .jastiperId(product.getJastiperId())
+                .originCountry(product.getOriginCountry())
+                .purchaseDate(product.getPurchaseDate())
                 .build();
     }
 
     @PostMapping("/create")
-    public ResponseEntity<ProductResponseDTO> createProduct(@Valid @RequestBody ProductDTO productDTO) {
+    public ResponseEntity<?> createProduct(
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @Valid @RequestBody ProductDTO productDTO) {
+
+        if (!"JASTIPER".equalsIgnoreCase(role) || userId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Akses ditolak: Hanya Jastiper yang dapat menambah produk.");
+        }
+
         Product product = Product.builder()
                 .name(productDTO.getName())
                 .description(productDTO.getDescription())
                 .price(productDTO.getPrice())
                 .stock(productDTO.getStock())
-                .jastiperId(productDTO.getJastiperId())
+                .originCountry(productDTO.getOriginCountry())
+                .purchaseDate(productDTO.getPurchaseDate())
+                .jastiperId(userId)
                 .build();
 
         Product savedProduct = productService.createProduct(product);
@@ -48,54 +61,72 @@ public class ProductController {
     @GetMapping("/list")
     public ResponseEntity<List<ProductResponseDTO>> getAllProducts() {
         List<Product> products = productService.getAllProducts();
-        List<ProductResponseDTO> response = products.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(products.stream().map(this::convertToResponseDTO).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponseDTO> getProductById(@PathVariable UUID id) {
-        Product product = productService.getProductById(id);
-        return ResponseEntity.ok(convertToResponseDTO(product));
+        return ResponseEntity.ok(convertToResponseDTO(productService.getProductById(id)));
     }
 
+
     @PutMapping("/update/{id}")
-    public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable UUID id, @Valid @RequestBody ProductDTO productDTO) {
+    public ResponseEntity<?> updateProduct(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @Valid @RequestBody ProductDTO productDTO) {
+
+        if (!"JASTIPER".equalsIgnoreCase(role) || userId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Akses ditolak.");
+        }
+
         Product updatedProduct = productService.updateProduct(id, productDTO);
         return ResponseEntity.ok(convertToResponseDTO(updatedProduct));
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<String> deleteProduct(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteProduct(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+
+        // FIX MEDIUM 2: Admin punya kuasa buat hapus barang fraud
+        if (!"JASTIPER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Akses ditolak.");
+        }
+
         productService.deleteProduct(id);
-        return ResponseEntity.ok("Barang berhasil dihapus dari katalog!");
+        return ResponseEntity.ok("Barang berhasil dihapus!");
+    }
+
+    @GetMapping("/my-catalog")
+    public ResponseEntity<?> getMyCatalog(
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+
+        if (!"JASTIPER".equalsIgnoreCase(role) || userId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Akses ditolak.");
+        }
+
+        List<Product> products = productService.getProductsByJastiper(userId);
+        return ResponseEntity.ok(products.stream().map(this::convertToResponseDTO).collect(Collectors.toList()));
     }
 
     @GetMapping("/search")
     public ResponseEntity<List<ProductResponseDTO>> searchProductsByName(@RequestParam String name) {
         List<Product> products = productService.searchProductsByName(name);
-        List<ProductResponseDTO> response = products.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/jastiper/{jastiperId}")
-    public ResponseEntity<List<ProductResponseDTO>> getProductsByJastiper(@PathVariable String jastiperId) {
-        List<Product> products = productService.getProductsByJastiper(jastiperId);
-        List<ProductResponseDTO> response = products.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(products.stream().map(this::convertToResponseDTO).collect(Collectors.toList()));
     }
 
     @GetMapping("/admin/monitor")
-    public ResponseEntity<List<ProductResponseDTO>> monitorProductsAdmin() {
+    public ResponseEntity<?> monitorProductsAdmin(
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Akses ditolak: Hanya Admin.");
+        }
+
         List<Product> products = productService.getAllProducts();
-        List<ProductResponseDTO> response = products.stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(products.stream().map(this::convertToResponseDTO).collect(Collectors.toList()));
     }
 }

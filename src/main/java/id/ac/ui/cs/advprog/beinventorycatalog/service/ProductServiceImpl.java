@@ -72,5 +72,19 @@ public class ProductServiceImpl implements ProductService {
         product.setStock(product.getStock() - quantity);
         return productRepository.save(product);
     }
-    
+
+    @Transactional
+    public Product updateProduct(UUID id, ProductDTO productDTO, String requesterId) {
+        Product product = getProductById(id);
+        
+        if (!product.getJastiperId().equals(requesterId)) {
+            throw new IllegalArgumentException("Akses ditolak: Ini bukan barang dagangan Anda!");
+        }
+
+        product.setDescription(productDTO.getDescription());
+        product.setPrice(productDTO.getPrice());
+        product.setStock(productDTO.getStock());
+
+        return productRepository.save(product);
+    }
 }

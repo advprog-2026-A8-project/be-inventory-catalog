@@ -22,6 +22,9 @@ public class ProductDTO {
     @Min(value = 0, message = "Stok tidak boleh negatif")
     private Integer stock;
 
-    @NotBlank(message = "Jastiper ID tidak boleh kosong")
-    private String jastiperId;
+    @NotBlank(message = "Negara asal tidak boleh kosong")
+    private String originCountry;
+
+    @NotBlank(message = "Tanggal pembelian tidak boleh kosong")
+    private String purchaseDate;
 }

@@ -13,4 +13,6 @@ public class ProductResponseDTO {
     private Double price;
     private Integer stock;
     private String jastiperId;
+    private String originCountry;
+    private String purchaseDate;
 }
