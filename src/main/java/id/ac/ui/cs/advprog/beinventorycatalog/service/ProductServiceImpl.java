@@ -5,6 +5,7 @@ import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // <-- Import baru buat ngunci transaksi
 
 import java.util.List;
 import java.util.UUID;
@@ -56,5 +57,34 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<Product> getProductsByJastiper(String jastiperId) {
         return productRepository.findByJastiperId(jastiperId);
+    }
+
+    @Override
+    @Transactional
+    public Product reduceProductStock(UUID id, int quantity) {
+        Product product = productRepository.findByIdWithPessimisticLock(id)
+                .orElseThrow(() -> new IllegalArgumentException("Waduh, barang dengan ID ini nggak ketemu cuy!"));
+
+        if (product.getStock() < quantity) {
+            throw new IllegalArgumentException("Waduh, stok nggak cukup! Sisa stok: " + product.getStock());
+        }
+
+        product.setStock(product.getStock() - quantity);
+        return productRepository.save(product);
+    }
+
+    @Transactional
+    public Product updateProduct(UUID id, ProductDTO productDTO, String requesterId) {
+        Product product = getProductById(id);
+        
+        if (!product.getJastiperId().equals(requesterId)) {
+            throw new IllegalArgumentException("Akses ditolak: Ini bukan barang dagangan Anda!");
+        }
+
+        product.setDescription(productDTO.getDescription());
+        product.setPrice(productDTO.getPrice());
+        product.setStock(productDTO.getStock());
+
+        return productRepository.save(product);
     }
 }

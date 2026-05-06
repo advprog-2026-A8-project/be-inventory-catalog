@@ -27,7 +27,7 @@ class ProductServiceImplTest {
     private ProductServiceImpl productService;
 
     private Product product;
-    private ProductDTO productDTO; // <--- Deklarasiin ini biar nggak "Cannot resolve symbol"
+    private ProductDTO productDTO;
     private UUID testId;
 
     @BeforeEach
@@ -41,6 +41,8 @@ class ProductServiceImplTest {
                 .description("Kipas angin dinding")
                 .price(150000.0)
                 .stock(10)
+                .originCountry("Indonesia")
+                .purchaseDate("2026-05-05")
                 .jastiperId("jastiper-123")
                 .build();
 
@@ -50,7 +52,8 @@ class ProductServiceImplTest {
         productDTO.setDescription("Deskripsi baru");
         productDTO.setPrice(160000.0);
         productDTO.setStock(5);
-        productDTO.setJastiperId("jastiper-123");
+        productDTO.setOriginCountry("Indonesia");
+        productDTO.setPurchaseDate("2026-05-05");
     }
 
     @Test
@@ -93,15 +96,31 @@ class ProductServiceImplTest {
     }
 
     @Test
-    void testUpdateProduct() {
+    void testUpdateProductSuccess() {
         when(productRepository.findById(testId)).thenReturn(Optional.of(product));
         when(productRepository.save(any(Product.class))).thenReturn(product);
 
-        Product result = productService.updateProduct(testId, productDTO);
+        // Parameter ke-3: ID Jastiper yang sah ("jastiper-123")
+        Product result = productService.updateProduct(testId, productDTO, "jastiper-123");
 
         assertNotNull(result);
         verify(productRepository, times(1)).findById(testId);
         verify(productRepository, times(1)).save(any(Product.class));
+    }
+
+    @Test
+    void testUpdateProductOwnershipFailed() {
+        when(productRepository.findById(testId)).thenReturn(Optional.of(product));
+
+        // Simulasi kalau yang request update adalah "hacker-123"
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            productService.updateProduct(testId, productDTO, "hacker-123");
+        });
+
+        // Pastikan dilempar error sesuai pesan di Service
+        assertEquals("Akses ditolak: Ini bukan barang dagangan Anda!", exception.getMessage());
+        verify(productRepository, times(1)).findById(testId);
+        verify(productRepository, never()).save(any(Product.class)); // Pastikan gak masuk ke DB
     }
 
     @Test

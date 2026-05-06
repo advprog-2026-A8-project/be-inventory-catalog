@@ -30,6 +30,10 @@ public class Product {
     @Column(nullable = false)
     private Integer stock;
 
+    private String originCountry;
+    
+    private String purchaseDate;
+
     @Column(name = "jastiper_id", nullable = false)
     private String jastiperId;
 }
