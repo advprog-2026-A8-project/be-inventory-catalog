@@ -28,7 +28,7 @@ class ProductServiceImplTest {
     private ProductServiceImpl productService;
 
     private Product product;
-    private ProductDTO productDTO; // <--- Deklarasiin ini biar nggak "Cannot resolve symbol"
+    private ProductDTO productDTO; 
     private UUID testId;
 
     @BeforeEach
