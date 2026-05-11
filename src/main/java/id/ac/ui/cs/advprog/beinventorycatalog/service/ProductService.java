@@ -13,4 +13,5 @@ public interface ProductService {
     void deleteProduct(UUID id);
     List<Product> searchProductsByName(String name);
     List<Product> getProductsByJastiper(String jastiperId);
+    boolean reserveStock(UUID id, int quantity);
 }

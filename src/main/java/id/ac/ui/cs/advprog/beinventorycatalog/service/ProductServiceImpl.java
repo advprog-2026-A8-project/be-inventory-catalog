@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,12 +33,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public Product updateProduct(UUID id, ProductDTO productDTO) {
         Product existingProduct = getProductById(id);
-        existingProduct.setName(productDTO.getName());
         existingProduct.setDescription(productDTO.getDescription());
         existingProduct.setPrice(productDTO.getPrice());
         existingProduct.setStock(productDTO.getStock());
+        existingProduct.setOriginCountry(productDTO.getOriginCountry());
+        existingProduct.setPurchaseDate(productDTO.getPurchaseDate());
 
         return productRepository.save(existingProduct);
     }
@@ -56,5 +59,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<Product> getProductsByJastiper(String jastiperId) {
         return productRepository.findByJastiperId(jastiperId);
+    }
+
+    @Override
+    @Transactional
+    public boolean reserveStock(UUID id, int quantity) {
+        if (quantity <= 0) return false;
+        int updatedRows = productRepository.decrementStock(id, quantity);
+        return updatedRows > 0;
     }
 }

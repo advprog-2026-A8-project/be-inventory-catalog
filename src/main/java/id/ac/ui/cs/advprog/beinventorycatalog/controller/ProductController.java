@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/products")
@@ -18,13 +20,23 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping("/create")
-    public ResponseEntity<Product> createProduct(@RequestBody ProductDTO productDTO) {
+    public ResponseEntity<Product> createProduct(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            @Valid @RequestBody ProductDTO productDTO) {
+
+        if (!"JASTIPER".equalsIgnoreCase(role) || userId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         Product product = Product.builder()
                 .name(productDTO.getName())
                 .description(productDTO.getDescription())
                 .price(productDTO.getPrice())
                 .stock(productDTO.getStock())
-                .jastiperId(productDTO.getJastiperId())
+                .originCountry(productDTO.getOriginCountry())
+                .purchaseDate(productDTO.getPurchaseDate())
+                .jastiperId(userId)
                 .build();
 
         Product savedProduct = productService.createProduct(product);
@@ -44,13 +56,42 @@ public class ProductController {
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable UUID id, @RequestBody ProductDTO productDTO) {
+    public ResponseEntity<Product> updateProduct(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            @PathVariable UUID id, 
+            @Valid @RequestBody ProductDTO productDTO) {
+
+        if (userId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Product existing = productService.getProductById(id);
+
+        if (!"ADMIN".equalsIgnoreCase(role) && !existing.getJastiperId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         Product updatedProduct = productService.updateProduct(id, productDTO);
         return ResponseEntity.ok(updatedProduct);
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<String> deleteProduct(@PathVariable UUID id) {
+    public ResponseEntity<String> deleteProduct(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            @PathVariable UUID id) {
+
+        if (userId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Product existing = productService.getProductById(id);
+
+        if (!"ADMIN".equalsIgnoreCase(role) && !existing.getJastiperId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         productService.deleteProduct(id);
         return ResponseEntity.ok("Barang berhasil dihapus dari katalog!");
     }
@@ -61,9 +102,16 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
-    @GetMapping("/jastiper/{jastiperId}")
-    public ResponseEntity<List<Product>> getProductsByJastiper(@PathVariable String jastiperId) {
-        List<Product> products = productService.getProductsByJastiper(jastiperId);
+    @GetMapping("/my-catalog")
+    public ResponseEntity<List<Product>> getMyCatalog(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId) {
+        
+        if (!"JASTIPER".equalsIgnoreCase(role) || userId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<Product> products = productService.getProductsByJastiper(userId);
         return ResponseEntity.ok(products);
     }
 }

@@ -2,6 +2,7 @@ package id.ac.ui.cs.advprog.beinventorycatalog.service;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
+import java.time.LocalDate;
 import id.ac.ui.cs.advprog.beinventorycatalog.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class ProductServiceImplTest {
                 .description("Kipas angin dinding")
                 .price(150000.0)
                 .stock(10)
+                .originCountry("Indonesia")
+                .purchaseDate(LocalDate.now())
                 .jastiperId("jastiper-123")
                 .build();
 
@@ -50,7 +53,8 @@ class ProductServiceImplTest {
         productDTO.setDescription("Deskripsi baru");
         productDTO.setPrice(160000.0);
         productDTO.setStock(5);
-        productDTO.setJastiperId("jastiper-123");
+        productDTO.setOriginCountry("Indonesia");
+        productDTO.setPurchaseDate(LocalDate.now());
     }
 
     @Test

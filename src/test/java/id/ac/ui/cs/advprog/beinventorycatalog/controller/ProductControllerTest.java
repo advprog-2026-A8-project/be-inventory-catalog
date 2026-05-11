@@ -2,6 +2,7 @@ package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
+import java.time.LocalDate;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,8 @@ class ProductControllerTest {
                 .description("Kipas angin dinding")
                 .price(150000.0)
                 .stock(10)
+                .originCountry("Indonesia")
+                .purchaseDate(LocalDate.now())
                 .jastiperId("jastiper-123")
                 .build();
 
@@ -51,14 +54,15 @@ class ProductControllerTest {
         productDTO.setDescription("Kipas angin dinding");
         productDTO.setPrice(150000.0);
         productDTO.setStock(10);
-        productDTO.setJastiperId("jastiper-123");
+        productDTO.setOriginCountry("Indonesia");
+        productDTO.setPurchaseDate(LocalDate.now());
     }
 
     @Test
     void testCreateProduct() {
         when(productService.createProduct(any(Product.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.createProduct(productDTO);
+        ResponseEntity<Product> response = productController.createProduct("JASTIPER", "jastiper-123", productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -95,9 +99,10 @@ class ProductControllerTest {
 
     @Test
     void testUpdateProduct() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
         when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.updateProduct(product.getId(), productDTO);
+        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "jastiper-123", product.getId(), productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -107,9 +112,10 @@ class ProductControllerTest {
 
     @Test
     void testDeleteProduct() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
         doNothing().when(productService).deleteProduct(product.getId());
 
-        ResponseEntity<String> response = productController.deleteProduct(product.getId());
+        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "jastiper-123", product.getId());
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -133,11 +139,11 @@ class ProductControllerTest {
     }
 
     @Test
-    void testGetProductsByJastiper() {
+    void testGetMyCatalog() {
         String jastiperId = "jastiper-123";
         when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
 
-        ResponseEntity<List<Product>> response = productController.getProductsByJastiper(jastiperId);
+        ResponseEntity<List<Product>> response = productController.getMyCatalog("JASTIPER", jastiperId);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
