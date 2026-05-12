@@ -212,4 +212,29 @@ class ProductControllerTest {
         ResponseEntity<List<Product>> response2 = productController.getMyCatalog("JASTIPER", "");
         assertEquals(403, response2.getStatusCode().value());
     }
+
+    @Test
+    void testGetProductsByJastiperPublic() {
+        String jastiperId = "jastiper-123";
+        when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
+        ResponseEntity<List<Product>> response = productController.getProductsByJastiper(jastiperId);
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(productService, times(1)).getProductsByJastiper(jastiperId);
+    }
+
+    @Test
+    void testReserveStockSuccess() {
+        when(productService.reserveStock(product.getId(), 2)).thenReturn(true);
+        ResponseEntity<String> response = productController.reserveStock(product.getId(), 2);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("Stock reserved successfully", response.getBody());
+    }
+
+    @Test
+    void testReserveStockFailure() {
+        when(productService.reserveStock(product.getId(), 20)).thenReturn(false);
+        ResponseEntity<String> response = productController.reserveStock(product.getId(), 20);
+        assertEquals(400, response.getStatusCode().value());
+    }
 }

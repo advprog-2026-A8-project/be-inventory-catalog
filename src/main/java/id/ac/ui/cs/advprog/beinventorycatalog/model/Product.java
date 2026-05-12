@@ -6,7 +6,8 @@ import java.util.UUID;
 import java.time.LocalDate;
 @Entity
 @Table(name = "products", indexes = {
-        @Index(name = "idx_product_name", columnList = "name")
+        @Index(name = "idx_product_name", columnList = "name"),
+        @Index(name = "idx_product_jastiper_id", columnList = "jastiper_id")
 })
 @Data
 @Builder

@@ -114,4 +114,20 @@ public class ProductController {
         List<Product> products = productService.getProductsByJastiper(userId);
         return ResponseEntity.ok(products);
     }
+
+    @GetMapping("/jastiper/{jastiperId}")
+    public ResponseEntity<List<Product>> getProductsByJastiper(@PathVariable String jastiperId) {
+        List<Product> products = productService.getProductsByJastiper(jastiperId);
+        return ResponseEntity.ok(products);
+    }
+
+    @PostMapping("/{id}/reserve")
+    public ResponseEntity<String> reserveStock(@PathVariable UUID id, @RequestParam int quantity) {
+        boolean success = productService.reserveStock(id, quantity);
+        if (success) {
+            return ResponseEntity.ok("Stock reserved successfully");
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to reserve stock. Insufficient stock or invalid quantity.");
+        }
+    }
 }

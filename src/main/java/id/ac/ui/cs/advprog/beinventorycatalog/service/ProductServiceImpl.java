@@ -36,6 +36,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public Product updateProduct(UUID id, ProductDTO productDTO) {
         Product existingProduct = getProductById(id);
+        existingProduct.setName(productDTO.getName());
         existingProduct.setDescription(productDTO.getDescription());
         existingProduct.setPrice(productDTO.getPrice());
         existingProduct.setStock(productDTO.getStock());
