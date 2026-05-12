@@ -146,4 +146,31 @@ class ProductServiceImplTest {
         assertEquals(product.getName(), result.getFirst().getName());
         verify(productRepository, times(1)).findByJastiperId(jastiperId);
     }
+
+    @Test
+    void testReserveStockSuccess() {
+        when(productRepository.decrementStock(testId, 5)).thenReturn(1);
+        boolean result = productService.reserveStock(testId, 5);
+        assertTrue(result);
+        verify(productRepository, times(1)).decrementStock(testId, 5);
+    }
+
+    @Test
+    void testReserveStockZeroOrNegativeQuantity() {
+        boolean resultZero = productService.reserveStock(testId, 0);
+        assertFalse(resultZero);
+        
+        boolean resultNegative = productService.reserveStock(testId, -5);
+        assertFalse(resultNegative);
+        
+        verify(productRepository, never()).decrementStock(any(UUID.class), anyInt());
+    }
+
+    @Test
+    void testReserveStockFailedUpdate() {
+        when(productRepository.decrementStock(testId, 20)).thenReturn(0);
+        boolean result = productService.reserveStock(testId, 20);
+        assertFalse(result);
+        verify(productRepository, times(1)).decrementStock(testId, 20);
+    }
 }

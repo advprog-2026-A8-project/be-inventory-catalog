@@ -152,4 +152,89 @@ class ProductControllerTest {
         assertEquals(product, response.getBody().getFirst());
         verify(productService, times(1)).getProductsByJastiper(jastiperId);
     }
+
+    @Test
+    void testCreateProductForbidden() {
+        ResponseEntity<Product> response = productController.createProduct("USER", "user-123", productDTO);
+        assertEquals(403, response.getStatusCode().value());
+        
+        ResponseEntity<Product> response2 = productController.createProduct("JASTIPER", "", productDTO);
+        assertEquals(403, response2.getStatusCode().value());
+    }
+
+    @Test
+    void testUpdateProductUnauthorized() {
+        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "", product.getId(), productDTO);
+        assertEquals(401, response.getStatusCode().value());
+    }
+
+    @Test
+    void testUpdateProductForbidden() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
+        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "other-user", product.getId(), productDTO);
+        assertEquals(403, response.getStatusCode().value());
+    }
+
+    @Test
+    void testUpdateProductAdminAllowed() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
+        when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
+        ResponseEntity<Product> response = productController.updateProduct("ADMIN", "other-user", product.getId(), productDTO);
+        assertEquals(200, response.getStatusCode().value());
+    }
+
+    @Test
+    void testDeleteProductUnauthorized() {
+        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "", product.getId());
+        assertEquals(401, response.getStatusCode().value());
+    }
+
+    @Test
+    void testDeleteProductForbidden() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
+        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "other-user", product.getId());
+        assertEquals(403, response.getStatusCode().value());
+    }
+
+    @Test
+    void testDeleteProductAdminAllowed() {
+        when(productService.getProductById(product.getId())).thenReturn(product);
+        doNothing().when(productService).deleteProduct(product.getId());
+        ResponseEntity<String> response = productController.deleteProduct("ADMIN", "other-user", product.getId());
+        assertEquals(200, response.getStatusCode().value());
+    }
+
+    @Test
+    void testGetMyCatalogForbidden() {
+        ResponseEntity<List<Product>> response = productController.getMyCatalog("USER", "user-123");
+        assertEquals(403, response.getStatusCode().value());
+        
+        ResponseEntity<List<Product>> response2 = productController.getMyCatalog("JASTIPER", "");
+        assertEquals(403, response2.getStatusCode().value());
+    }
+
+    @Test
+    void testGetProductsByJastiperPublic() {
+        String jastiperId = "jastiper-123";
+        when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
+        ResponseEntity<List<Product>> response = productController.getProductsByJastiper(jastiperId);
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(productService, times(1)).getProductsByJastiper(jastiperId);
+    }
+
+    @Test
+    void testReserveStockSuccess() {
+        when(productService.reserveStock(product.getId(), 2)).thenReturn(true);
+        ResponseEntity<String> response = productController.reserveStock(product.getId(), 2);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("Stock reserved successfully", response.getBody());
+    }
+
+    @Test
+    void testReserveStockFailure() {
+        when(productService.reserveStock(product.getId(), 20)).thenReturn(false);
+        ResponseEntity<String> response = productController.reserveStock(product.getId(), 20);
+        assertEquals(400, response.getStatusCode().value());
+    }
 }
