@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -72,10 +73,9 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "jastiper-new", roles = "JASTIPER")
     void testCreateProductSuccess() throws Exception {
         mockMvc.perform(post("/api/products/create")
-                .header("X-User-Role", "JASTIPER")
-                .header("X-User-Id", "jastiper-new")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isOk())
@@ -84,10 +84,9 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "titiper-123", roles = "TITIPER")
     void testCreateProductForbidden() throws Exception {
         mockMvc.perform(post("/api/products/create")
-                .header("X-User-Role", "TITIPER")
-                .header("X-User-Id", "titiper-123")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isForbidden());
@@ -101,10 +100,9 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "jastiper-123", roles = "JASTIPER")
     void testUpdateProductByOwner() throws Exception {
         mockMvc.perform(put("/api/products/update/" + savedProduct.getId())
-                .header("X-User-Role", "JASTIPER")
-                .header("X-User-Id", "jastiper-123")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isOk())
@@ -112,16 +110,26 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "other-jastiper", roles = "JASTIPER")
     void testUpdateProductForbidden() throws Exception {
         mockMvc.perform(put("/api/products/update/" + savedProduct.getId())
-                .header("X-User-Role", "JASTIPER")
-                .header("X-User-Id", "other-jastiper")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void testUpdateProductAdmin() throws Exception {
+        mockMvc.perform(put("/api/products/update/" + savedProduct.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(productDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Kipas Angin Baru"));
+    }
+
+    @Test
+    @WithMockUser(username = "service", roles = "USER")
     void testReserveStockSuccess() throws Exception {
         mockMvc.perform(post("/api/products/" + savedProduct.getId() + "/reserve")
                 .param("quantity", "2"))
@@ -133,6 +141,7 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "service", roles = "USER")
     void testReserveStockOversell() throws Exception {
         mockMvc.perform(post("/api/products/" + savedProduct.getId() + "/reserve")
                 .param("quantity", "20"))
@@ -140,6 +149,18 @@ class ProductControllerIntegrationTest {
 
         Product unchanged = productRepository.findById(savedProduct.getId()).orElseThrow();
         assertEquals(10, unchanged.getStock());
+    }
+
+    @Test
+    @WithMockUser(username = "service", roles = "USER")
+    void testReleaseStockSuccess() throws Exception {
+        mockMvc.perform(post("/api/products/" + savedProduct.getId() + "/release")
+                .param("quantity", "3"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Stock released successfully"));
+
+        Product updated = productRepository.findById(savedProduct.getId()).orElseThrow();
+        assertEquals(13, updated.getStock());
     }
 
     @Test
