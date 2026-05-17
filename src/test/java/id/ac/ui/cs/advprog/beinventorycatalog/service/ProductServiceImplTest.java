@@ -173,4 +173,31 @@ class ProductServiceImplTest {
         assertFalse(result);
         verify(productRepository, times(1)).decrementStock(testId, 20);
     }
+
+    @Test
+    void testReleaseStockSuccess() {
+        when(productRepository.incrementStock(testId, 5)).thenReturn(1);
+        boolean result = productService.releaseStock(testId, 5);
+        assertTrue(result);
+        verify(productRepository, times(1)).incrementStock(testId, 5);
+    }
+
+    @Test
+    void testReleaseStockZeroOrNegativeQuantity() {
+        boolean resultZero = productService.releaseStock(testId, 0);
+        assertFalse(resultZero);
+        
+        boolean resultNegative = productService.releaseStock(testId, -5);
+        assertFalse(resultNegative);
+        
+        verify(productRepository, never()).incrementStock(any(UUID.class), anyInt());
+    }
+
+    @Test
+    void testReleaseStockFailedUpdate() {
+        when(productRepository.incrementStock(testId, 5)).thenReturn(0);
+        boolean result = productService.releaseStock(testId, 5);
+        assertFalse(result);
+        verify(productRepository, times(1)).incrementStock(testId, 5);
+    }
 }

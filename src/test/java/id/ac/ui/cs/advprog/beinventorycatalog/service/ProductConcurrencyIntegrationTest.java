@@ -26,7 +26,7 @@ import org.springframework.test.context.TestPropertySource;
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
 })
-public class ProductConcurrencyIntegrationTest {
+class ProductConcurrencyIntegrationTest {
 
     @Autowired
     private ProductService productService;
