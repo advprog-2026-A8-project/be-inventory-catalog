@@ -14,4 +14,5 @@ public interface ProductService {
     List<Product> searchProductsByName(String name);
     List<Product> getProductsByJastiper(String jastiperId);
     boolean reserveStock(UUID id, int quantity);
+    boolean releaseStock(UUID id, int quantity);
 }
