@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.LocalDate;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +43,7 @@ public class ProductConcurrencyIntegrationTest {
                 .price(100.0)
                 .stock(10) // Hanya 10 stok
                 .originCountry("ID")
+                .purchaseDate(LocalDate.now())
                 .jastiperId("test-jastiper")
                 .build();
         testProduct = productRepository.save(product);
