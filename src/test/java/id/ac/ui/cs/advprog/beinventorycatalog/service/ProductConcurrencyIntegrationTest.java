@@ -23,7 +23,8 @@ import org.springframework.test.context.TestPropertySource;
         "spring.datasource.url=jdbc:h2:mem:testdb",
         "spring.datasource.driverClassName=org.h2.Driver",
         "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
 })
 public class ProductConcurrencyIntegrationTest {
 
