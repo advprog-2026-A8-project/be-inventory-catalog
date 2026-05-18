@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.UUID;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/products")
@@ -20,14 +22,12 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping("/create")
+    @PreAuthorize("hasRole('JASTIPER')")
     public ResponseEntity<Product> createProduct(
-            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
-            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            Authentication authentication,
             @Valid @RequestBody ProductDTO productDTO) {
 
-        if (!"JASTIPER".equalsIgnoreCase(role) || userId.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        String userId = authentication.getName();
 
         Product product = Product.builder()
                 .name(productDTO.getName())
@@ -57,18 +57,17 @@ public class ProductController {
 
     @PutMapping("/update/{id}")
     public ResponseEntity<Product> updateProduct(
-            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
-            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            Authentication authentication,
             @PathVariable UUID id, 
             @Valid @RequestBody ProductDTO productDTO) {
 
-        if (userId.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        String userId = authentication.getName();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         Product existing = productService.getProductById(id);
 
-        if (!"ADMIN".equalsIgnoreCase(role) && !existing.getJastiperId().equals(userId)) {
+        if (!isAdmin && !existing.getJastiperId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -78,17 +77,16 @@ public class ProductController {
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> deleteProduct(
-            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
-            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId,
+            Authentication authentication,
             @PathVariable UUID id) {
 
-        if (userId.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        String userId = authentication.getName();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         Product existing = productService.getProductById(id);
 
-        if (!"ADMIN".equalsIgnoreCase(role) && !existing.getJastiperId().equals(userId)) {
+        if (!isAdmin && !existing.getJastiperId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -103,13 +101,11 @@ public class ProductController {
     }
 
     @GetMapping("/my-catalog")
+    @PreAuthorize("hasRole('JASTIPER')")
     public ResponseEntity<List<Product>> getMyCatalog(
-            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
-            @RequestHeader(value = "X-User-Id", defaultValue = "") String userId) {
+            Authentication authentication) {
         
-        if (!"JASTIPER".equalsIgnoreCase(role) || userId.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        String userId = authentication.getName();
 
         List<Product> products = productService.getProductsByJastiper(userId);
         return ResponseEntity.ok(products);
@@ -128,6 +124,16 @@ public class ProductController {
             return ResponseEntity.ok("Stock reserved successfully");
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to reserve stock. Insufficient stock or invalid quantity.");
+        }
+    }
+
+    @PostMapping("/{id}/release")
+    public ResponseEntity<String> releaseStock(@PathVariable UUID id, @RequestParam int quantity) {
+        boolean success = productService.releaseStock(id, quantity);
+        if (success) {
+            return ResponseEntity.ok("Stock released successfully");
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to release stock. Invalid quantity.");
         }
     }
 }

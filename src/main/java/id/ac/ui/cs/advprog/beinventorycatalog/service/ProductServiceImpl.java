@@ -69,4 +69,12 @@ public class ProductServiceImpl implements ProductService {
         int updatedRows = productRepository.decrementStock(id, quantity);
         return updatedRows > 0;
     }
+
+    @Override
+    @Transactional
+    public boolean releaseStock(UUID id, int quantity) {
+        if (quantity <= 0) return false;
+        int updatedRows = productRepository.incrementStock(id, quantity);
+        return updatedRows > 0;
+    }
 }

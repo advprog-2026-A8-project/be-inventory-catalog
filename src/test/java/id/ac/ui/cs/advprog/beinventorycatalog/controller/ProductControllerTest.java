@@ -11,7 +11,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,12 +26,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 
 @ExtendWith(MockitoExtension.class)
 class ProductControllerTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private Authentication authentication;
 
     @InjectMocks
     private ProductController productController;
@@ -60,9 +67,10 @@ class ProductControllerTest {
 
     @Test
     void testCreateProduct() {
+        when(authentication.getName()).thenReturn("jastiper-123");
         when(productService.createProduct(any(Product.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.createProduct("JASTIPER", "jastiper-123", productDTO);
+        ResponseEntity<Product> response = productController.createProduct(authentication, productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -99,10 +107,12 @@ class ProductControllerTest {
 
     @Test
     void testUpdateProduct() {
+        when(authentication.getName()).thenReturn("jastiper-123");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
         when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
 
-        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "jastiper-123", product.getId(), productDTO);
+        ResponseEntity<Product> response = productController.updateProduct(authentication, product.getId(), productDTO);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -112,10 +122,12 @@ class ProductControllerTest {
 
     @Test
     void testDeleteProduct() {
+        when(authentication.getName()).thenReturn("jastiper-123");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
         doNothing().when(productService).deleteProduct(product.getId());
 
-        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "jastiper-123", product.getId());
+        ResponseEntity<String> response = productController.deleteProduct(authentication, product.getId());
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -141,9 +153,10 @@ class ProductControllerTest {
     @Test
     void testGetMyCatalog() {
         String jastiperId = "jastiper-123";
+        when(authentication.getName()).thenReturn(jastiperId);
         when(productService.getProductsByJastiper(jastiperId)).thenReturn(List.of(product));
 
-        ResponseEntity<List<Product>> response = productController.getMyCatalog("JASTIPER", jastiperId);
+        ResponseEntity<List<Product>> response = productController.getMyCatalog(authentication);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -154,63 +167,45 @@ class ProductControllerTest {
     }
 
     @Test
-    void testCreateProductForbidden() {
-        ResponseEntity<Product> response = productController.createProduct("USER", "user-123", productDTO);
-        assertEquals(403, response.getStatusCode().value());
-        
-        ResponseEntity<Product> response2 = productController.createProduct("JASTIPER", "", productDTO);
-        assertEquals(403, response2.getStatusCode().value());
-    }
-
-    @Test
-    void testUpdateProductUnauthorized() {
-        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "", product.getId(), productDTO);
-        assertEquals(401, response.getStatusCode().value());
-    }
-
-    @Test
     void testUpdateProductForbidden() {
+        when(authentication.getName()).thenReturn("other-user");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
-        ResponseEntity<Product> response = productController.updateProduct("JASTIPER", "other-user", product.getId(), productDTO);
+        
+        ResponseEntity<Product> response = productController.updateProduct(authentication, product.getId(), productDTO);
         assertEquals(403, response.getStatusCode().value());
     }
 
     @Test
     void testUpdateProductAdminAllowed() {
+        when(authentication.getName()).thenReturn("admin-123");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
         when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(product);
-        ResponseEntity<Product> response = productController.updateProduct("ADMIN", "other-user", product.getId(), productDTO);
+        
+        ResponseEntity<Product> response = productController.updateProduct(authentication, product.getId(), productDTO);
         assertEquals(200, response.getStatusCode().value());
     }
 
     @Test
-    void testDeleteProductUnauthorized() {
-        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "", product.getId());
-        assertEquals(401, response.getStatusCode().value());
-    }
-
-    @Test
     void testDeleteProductForbidden() {
+        when(authentication.getName()).thenReturn("other-user");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
-        ResponseEntity<String> response = productController.deleteProduct("JASTIPER", "other-user", product.getId());
+        
+        ResponseEntity<String> response = productController.deleteProduct(authentication, product.getId());
         assertEquals(403, response.getStatusCode().value());
     }
 
     @Test
     void testDeleteProductAdminAllowed() {
+        when(authentication.getName()).thenReturn("admin-123");
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(authentication).getAuthorities();
         when(productService.getProductById(product.getId())).thenReturn(product);
         doNothing().when(productService).deleteProduct(product.getId());
-        ResponseEntity<String> response = productController.deleteProduct("ADMIN", "other-user", product.getId());
-        assertEquals(200, response.getStatusCode().value());
-    }
-
-    @Test
-    void testGetMyCatalogForbidden() {
-        ResponseEntity<List<Product>> response = productController.getMyCatalog("USER", "user-123");
-        assertEquals(403, response.getStatusCode().value());
         
-        ResponseEntity<List<Product>> response2 = productController.getMyCatalog("JASTIPER", "");
-        assertEquals(403, response2.getStatusCode().value());
+        ResponseEntity<String> response = productController.deleteProduct(authentication, product.getId());
+        assertEquals(200, response.getStatusCode().value());
     }
 
     @Test
@@ -235,6 +230,21 @@ class ProductControllerTest {
     void testReserveStockFailure() {
         when(productService.reserveStock(product.getId(), 20)).thenReturn(false);
         ResponseEntity<String> response = productController.reserveStock(product.getId(), 20);
+        assertEquals(400, response.getStatusCode().value());
+    }
+
+    @Test
+    void testReleaseStockSuccess() {
+        when(productService.releaseStock(product.getId(), 2)).thenReturn(true);
+        ResponseEntity<String> response = productController.releaseStock(product.getId(), 2);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("Stock released successfully", response.getBody());
+    }
+
+    @Test
+    void testReleaseStockFailure() {
+        when(productService.releaseStock(product.getId(), 20)).thenReturn(false);
+        ResponseEntity<String> response = productController.releaseStock(product.getId(), 20);
         assertEquals(400, response.getStatusCode().value());
     }
 }
