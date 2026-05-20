@@ -1,0 +1,39 @@
+services:
+  inventory-postgres:
+    image: postgres:15-alpine
+    container_name: inventory-postgres-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-inventorydb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "4003:5432"
+    volumes:
+      - inventory_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-inventorydb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  inventory-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory-app-dev
+    depends_on:
+      inventory-postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 4002
+      POSTGRES_HOST: inventory-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-inventorydb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "4002:4002"
+
+volumes:
+  inventory_pgdata:

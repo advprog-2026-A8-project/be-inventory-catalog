@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -65,6 +66,46 @@ class JwtAuthenticationFilterTest {
         assertEquals("user-123", auth.getPrincipal());
         assertTrue(auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_JASTIPER")));
         verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    void testDoFilterInternal_ValidTokenWithUserIdClaimUsesUserIdAsPrincipal() throws ServletException, IOException {
+        String token = Jwts.builder()
+                .setSubject("jastiper@example.com")
+                .claim("userId", "11111111-1111-1111-1111-111111111111")
+                .claim("role", "JASTIPER")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
+                .compact();
+
+        request.addHeader("Authorization", "Bearer " + token);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertNotNull(auth);
+        assertEquals("11111111-1111-1111-1111-111111111111", auth.getPrincipal());
+        assertInstanceOf(Map.class, auth.getDetails());
+        Map<?, ?> details = (Map<?, ?>) auth.getDetails();
+        assertEquals("11111111-1111-1111-1111-111111111111", details.get("userId"));
+        assertEquals("jastiper@example.com", details.get("subject"));
+    }
+
+    @Test
+    void testDoFilterInternal_TokenMissingRoleDoesNotAuthenticate() throws ServletException, IOException {
+        String token = Jwts.builder()
+                .setSubject("user-123")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
+                .compact();
+
+        request.addHeader("Authorization", "Bearer " + token);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test

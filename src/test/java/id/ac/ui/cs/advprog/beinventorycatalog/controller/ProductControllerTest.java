@@ -16,17 +16,20 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class ProductControllerTest {
@@ -76,6 +79,22 @@ class ProductControllerTest {
         assertEquals(200, response.getStatusCode().value());
         assertEquals(product, response.getBody());
         verify(productService, times(1)).createProduct(any(Product.class));
+    }
+
+    @Test
+    void testCreateProductUsesUserIdFromAuthenticationDetails() {
+        when(authentication.getDetails()).thenReturn(Map.of(
+                "userId", "11111111-1111-1111-1111-111111111111",
+                "subject", "jastiper@example.com"
+        ));
+        when(productService.createProduct(any(Product.class))).thenReturn(product);
+
+        ResponseEntity<Product> response = productController.createProduct(authentication, productDTO);
+
+        assertEquals(200, response.getStatusCode().value());
+        ArgumentCaptor<Product> captor = forClass(Product.class);
+        verify(productService).createProduct(captor.capture());
+        assertEquals("11111111-1111-1111-1111-111111111111", captor.getValue().getJastiperId());
     }
 
     @Test
@@ -167,6 +186,35 @@ class ProductControllerTest {
     }
 
     @Test
+    void testGetMyCatalogAggregatesIdentityCandidatesAndDeduplicates() {
+        Product secondProduct = Product.builder()
+                .id(UUID.randomUUID())
+                .name("Payung")
+                .description("Payung lipat")
+                .price(50000.0)
+                .stock(4)
+                .originCountry("Indonesia")
+                .purchaseDate(LocalDate.now())
+                .jastiperId("jastiper@example.com")
+                .build();
+
+        when(authentication.getName()).thenReturn("jastiper@example.com");
+        when(authentication.getDetails()).thenReturn(Map.of(
+                "userId", "11111111-1111-1111-1111-111111111111",
+                "subject", "jastiper@example.com"
+        ));
+        when(productService.getProductsByJastiper("jastiper@example.com")).thenReturn(List.of(product, secondProduct));
+        when(productService.getProductsByJastiper("11111111-1111-1111-1111-111111111111")).thenReturn(List.of(product));
+
+        ResponseEntity<List<Product>> response = productController.getMyCatalog(authentication);
+
+        assertNotNull(response.getBody());
+        assertEquals(2, response.getBody().size());
+        verify(productService).getProductsByJastiper("jastiper@example.com");
+        verify(productService).getProductsByJastiper("11111111-1111-1111-1111-111111111111");
+    }
+
+    @Test
     void testUpdateProductForbidden() {
         when(authentication.getName()).thenReturn("other-user");
         doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
@@ -174,6 +222,32 @@ class ProductControllerTest {
         
         ResponseEntity<Product> response = productController.updateProduct(authentication, product.getId(), productDTO);
         assertEquals(403, response.getStatusCode().value());
+    }
+
+    @Test
+    void testUpdateProductAllowedWhenOwnerMatchesSubjectCandidate() {
+        Product emailOwnedProduct = Product.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .stock(product.getStock())
+                .originCountry(product.getOriginCountry())
+                .purchaseDate(product.getPurchaseDate())
+                .jastiperId("jastiper@example.com")
+                .build();
+
+        when(authentication.getName()).thenReturn("11111111-1111-1111-1111-111111111111");
+        when(authentication.getDetails()).thenReturn(Map.of(
+                "userId", "11111111-1111-1111-1111-111111111111",
+                "subject", "jastiper@example.com"
+        ));
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
+        when(productService.getProductById(product.getId())).thenReturn(emailOwnedProduct);
+        when(productService.updateProduct(eq(product.getId()), any(ProductDTO.class))).thenReturn(emailOwnedProduct);
+
+        ResponseEntity<Product> response = productController.updateProduct(authentication, product.getId(), productDTO);
+        assertEquals(200, response.getStatusCode().value());
     }
 
     @Test
@@ -204,6 +278,32 @@ class ProductControllerTest {
         when(productService.getProductById(product.getId())).thenReturn(product);
         doNothing().when(productService).deleteProduct(product.getId());
         
+        ResponseEntity<String> response = productController.deleteProduct(authentication, product.getId());
+        assertEquals(200, response.getStatusCode().value());
+    }
+
+    @Test
+    void testDeleteProductAllowedWhenOwnerMatchesUserIdCandidate() {
+        Product uuidOwnedProduct = Product.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .stock(product.getStock())
+                .originCountry(product.getOriginCountry())
+                .purchaseDate(product.getPurchaseDate())
+                .jastiperId("11111111-1111-1111-1111-111111111111")
+                .build();
+
+        when(authentication.getName()).thenReturn("jastiper@example.com");
+        when(authentication.getDetails()).thenReturn(Map.of(
+                "userId", "11111111-1111-1111-1111-111111111111",
+                "subject", "jastiper@example.com"
+        ));
+        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_JASTIPER"))).when(authentication).getAuthorities();
+        when(productService.getProductById(product.getId())).thenReturn(uuidOwnedProduct);
+        doNothing().when(productService).deleteProduct(product.getId());
+
         ResponseEntity<String> response = productController.deleteProduct(authentication, product.getId());
         assertEquals(200, response.getStatusCode().value());
     }

@@ -13,6 +13,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/products")
@@ -27,7 +31,7 @@ public class ProductController {
             Authentication authentication,
             @Valid @RequestBody ProductDTO productDTO) {
 
-        String userId = authentication.getName();
+        String userId = resolvePreferredUserId(authentication);
 
         Product product = Product.builder()
                 .name(productDTO.getName())
@@ -61,13 +65,13 @@ public class ProductController {
             @PathVariable UUID id, 
             @Valid @RequestBody ProductDTO productDTO) {
 
-        String userId = authentication.getName();
+        Set<String> identityCandidates = extractIdentityCandidates(authentication);
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         Product existing = productService.getProductById(id);
 
-        if (!isAdmin && !existing.getJastiperId().equals(userId)) {
+        if (!isAdmin && !identityCandidates.contains(existing.getJastiperId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -80,13 +84,13 @@ public class ProductController {
             Authentication authentication,
             @PathVariable UUID id) {
 
-        String userId = authentication.getName();
+        Set<String> identityCandidates = extractIdentityCandidates(authentication);
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         Product existing = productService.getProductById(id);
 
-        if (!isAdmin && !existing.getJastiperId().equals(userId)) {
+        if (!isAdmin && !identityCandidates.contains(existing.getJastiperId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -104,10 +108,13 @@ public class ProductController {
     @PreAuthorize("hasRole('JASTIPER')")
     public ResponseEntity<List<Product>> getMyCatalog(
             Authentication authentication) {
-        
-        String userId = authentication.getName();
-
-        List<Product> products = productService.getProductsByJastiper(userId);
+        Set<String> identityCandidates = extractIdentityCandidates(authentication);
+        List<Product> products = identityCandidates.stream()
+                .flatMap(identity -> productService.getProductsByJastiper(identity).stream())
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(Product::getId, product -> product, (left, right) -> left, java.util.LinkedHashMap::new),
+                        map -> List.copyOf(map.values())
+                ));
         return ResponseEntity.ok(products);
     }
 
@@ -134,6 +141,44 @@ public class ProductController {
             return ResponseEntity.ok("Stock released successfully");
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to release stock. Invalid quantity.");
+        }
+    }
+
+    private String resolvePreferredUserId(Authentication authentication) {
+        if (authentication == null) {
+            return "";
+        }
+        Object details = authentication.getDetails();
+        if (details instanceof Map<?, ?> detailMap) {
+            Object userId = detailMap.get("userId");
+            if (userId instanceof String userIdString && !userIdString.isBlank()) {
+                return userIdString;
+            }
+        }
+        return authentication.getName();
+    }
+
+    private Set<String> extractIdentityCandidates(Authentication authentication) {
+        Set<String> identities = new LinkedHashSet<>();
+        if (authentication == null) {
+            return identities;
+        }
+        addIfPresent(identities, authentication.getName());
+        Object details = authentication.getDetails();
+        if (details instanceof Map<?, ?> detailMap) {
+            addIfPresent(identities, detailMap.get("userId"));
+            addIfPresent(identities, detailMap.get("subject"));
+        }
+        return identities;
+    }
+
+    private void addIfPresent(Set<String> identities, Object candidate) {
+        if (!(candidate instanceof String value)) {
+            return;
+        }
+        String normalized = value.trim();
+        if (!normalized.isEmpty()) {
+            identities.add(normalized);
         }
     }
 }
