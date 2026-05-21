@@ -129,6 +129,8 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD
           script: |
+            set -euo pipefail
+
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
 
@@ -141,32 +143,25 @@ jobs:
                 docker start ${{ env.DB_CONTAINER_NAME }}
               fi
             else
-              docker run -d \
-                --name=${{ env.DB_CONTAINER_NAME }} \
-                --network=app_network \
-                -p ${{ env.DB_PORT }}:5432 \
-                -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data \
-                -e POSTGRES_DB=${{ env.DB_NAME }} \ 
-                -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
-                -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
-                --restart always \
-                postgres:15-alpine
+              docker run -d --name=${{ env.DB_CONTAINER_NAME }} --network=app_network -p ${{ env.DB_PORT }}:5432 -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data -e POSTGRES_DB=${{ env.DB_NAME }} -e POSTGRES_USER="$REMOTE_POSTGRES_USER" -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" --restart always postgres:15-alpine
             fi
 
-            until docker exec ${{ env.DB_CONTAINER_NAME }} pg_isready -U "$REMOTE_POSTGRES_USER" -d "${{ env.DB_NAME }}"; do
+            DB_READY=0
+            for i in $(seq 1 30); do
+              if docker exec ${{ env.DB_CONTAINER_NAME }} pg_isready -U "$REMOTE_POSTGRES_USER" -d "${{ env.DB_NAME }}"; then
+                DB_READY=1
+                break
+              fi
+              echo "Waiting for database readiness ($i/30)..."
               sleep 2
             done
 
-            docker run -d \
-              --name=${{ env.CONTAINER_NAME }} \
-              --network=app_network \
-              -p ${{ env.APP_PORT }}:8080 \
-              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
-              -e POSTGRES_PORT=5432 \
-              -e POSTGRES_DB=${{ env.DB_NAME }} \
-              -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
-              -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
-              --restart always \
-              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            if [ "$DB_READY" -ne 1 ]; then
+              echo "Database failed to become ready."
+              docker logs ${{ env.DB_CONTAINER_NAME }} || true
+              exit 1
+            fi
+            
+            docker run -d --name=${{ env.CONTAINER_NAME }} --network=app_network -p ${{ env.APP_PORT }}:8080 -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} -e POSTGRES_PORT=5432 -e POSTGRES_DB=${{ env.DB_NAME }} -e POSTGRES_USER="$REMOTE_POSTGRES_USER" -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" --restart always ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
             docker ps
