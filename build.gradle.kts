@@ -51,11 +51,13 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
 }
 
+// otomatis generate report Jacoco setelah testing
 tasks.withType<Test> {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
 }
 
+// Konfigurasi Jacoco buat bikin file XML
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
@@ -65,6 +67,7 @@ tasks.jacocoTestReport {
     }
 }
 
+// Konfig SonarCloud Inventory Catalog
 sonar {
     properties {
         property("sonar.projectKey", "advprog-2026-A8-project_be-inventory-catalog")

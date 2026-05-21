@@ -146,7 +146,7 @@ jobs:
                 --network=app_network \
                 -p ${{ env.DB_PORT }}:5432 \
                 -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data \
-                -e POSTGRES_DB=${{ env.DB_NAME }} \
+                -e POSTGRES_DB=${{ env.DB_NAME }} \ 
                 -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
                 -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
                 --restart always \
