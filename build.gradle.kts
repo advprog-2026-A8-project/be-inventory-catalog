@@ -3,7 +3,7 @@ plugins {
     id("org.springframework.boot") version "3.5.10"
     id("io.spring.dependency-management") version "1.1.7"
     jacoco
-    id("org.sonarqube") version "4.4.1.3373" // SonarCloud
+    id("org.sonarqube") version "4.4.1.3373"
 }
 
 group = "id.ac.ui.cs.advprog"
@@ -26,14 +26,29 @@ repositories {
     mavenCentral()
 }
 
+// dependencyLocking {
+//     lockAllConfigurations()
+// }
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("com.h2database:h2")
+    testImplementation("org.springframework.security:spring-security-test")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    runtimeOnly("org.postgresql:postgresql")
+    implementation("net.bytebuddy:byte-buddy:1.15.11")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    val jjwtVersion = "0.11.5"
+    implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
 }
 
 // otomatis generate report Jacoco setelah testing

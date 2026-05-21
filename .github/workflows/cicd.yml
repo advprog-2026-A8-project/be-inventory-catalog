@@ -1,53 +1,172 @@
-name: CI/CD Pipeline - Inventory Catalog
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "staging" ]
   pull_request:
-    branches: [ "main", "staging" ]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
-  # Continuous Integration (CI) - Test, Coverage & SonarCloud
-  Continuous-Integration:
-    runs-on: ubuntu-latest
+  test:
+    name: Run Tests
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Check out the Git repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up Java toolchain
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: gradle
+          distribution: "temurin"
+          java-version: "21"
+          cache: "gradle"
 
-      - name: Grant execute permission for gradlew
+      - name: Add gradlew permission
         run: chmod +x gradlew
 
-      - name: Run Unit Tests and Generate Coverage
-        run: ./gradlew test jacocoTestReport
+      - name: Run Tests
+        run: ./gradlew clean test jacocoTestReport
 
-      - name: Analyze with SonarCloud
-        # Mengirim report ke SonarCloud,
+      - name: SonarCloud Scan (Push)
+        if: github.event_name == 'push'
+        run: ./gradlew sonar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew sonar
 
-  # Dummy Continuous Deployment (CD)
-  Dummy-Continuous-Deployment:
-    needs: Continuous-Integration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dummy Deploy to Environment
+      - name: SonarCloud Scan (PR)
+        if: github.event_name == 'pull_request'
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "Menjalankan Dummy Deployment ke PRODUCTION environment (main branch) [cite: 322]"
-          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
-            echo "Menjalankan Dummy Deployment ke STAGING environment (staging branch) [cite: 322]"
+          ./gradlew sonar \
+            -Dsonar.pullrequest.key="$SONAR_PR_KEY" \
+            -Dsonar.pullrequest.branch="$SONAR_PR_BRANCH" \
+            -Dsonar.pullrequest.base="$SONAR_PR_BASE" \
+            -Dsonar.pullrequest.provider=GitHub \
+            -Dsonar.pullrequest.github.repository="$SONAR_REPOSITORY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PR_KEY: ${{ github.event.pull_request.number }}
+          SONAR_PR_BRANCH: ${{ github.head_ref }}
+          SONAR_PR_BASE: ${{ github.base_ref }}
+          SONAR_REPOSITORY: ${{ github.repository }}
+
+  build-and-deploy:
+    name: Build and Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+
+    steps:
+      - name: Set environment variables
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_REPO: ${{ secrets.DOCKER_HUB_REPO_NAME }}
+        run: |
+          echo "IMAGE_NAME=$DOCKER_HUB_USER/$DOCKER_HUB_REPO" >> "$GITHUB_ENV"
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "APP_PORT=4000" >> "$GITHUB_ENV"
+            echo "CONTAINER_NAME=be_inventory_catalog_prod" >> "$GITHUB_ENV"
+            echo "IMAGE_TAG=latest" >> "$GITHUB_ENV"
+            echo "DB_CONTAINER_NAME=postgres_inventory_catalog_prod" >> "$GITHUB_ENV"
+            echo "DB_NAME=inventory_catalog_prod" >> "$GITHUB_ENV"
+            echo "DB_PORT=4001" >> "$GITHUB_ENV"
+            echo "DB_VOLUME=postgres_inventory_catalog_prod_data" >> "$GITHUB_ENV"
           else
-            echo "Bukan branch target deployment."
+            echo "APP_PORT=4002" >> "$GITHUB_ENV"
+            echo "CONTAINER_NAME=be_inventory_catalog_staging" >> "$GITHUB_ENV"
+            echo "IMAGE_TAG=staging" >> "$GITHUB_ENV"
+            echo "DB_CONTAINER_NAME=postgres_inventory_catalog_staging" >> "$GITHUB_ENV"
+            echo "DB_NAME=inventory_catalog_staging" >> "$GITHUB_ENV"
+            echo "DB_PORT=4003" >> "$GITHUB_ENV"
+            echo "DB_VOLUME=postgres_inventory_catalog_staging_data" >> "$GITHUB_ENV"
           fi
-          echo "Simulasi deployment berhasil! CI quality check telah dilewati. [cite: 341]"
+
+      - name: Check out code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Java toolchain
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "gradle"
+
+      - name: Add gradlew permission
+        run: chmod +x gradlew
+
+      - name: Build application jar
+        run: ./gradlew clean bootJar
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@ee4ca427a2f43b6a16632044ca514c076267da23 # v6.19.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+      - name: Releasing New Version
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          REMOTE_DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          REMOTE_DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          REMOTE_POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          REMOTE_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD
+          script: |
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
+
+            docker network create app_network || true
+            echo "$REMOTE_DOCKER_HUB_ACCESS_TOKEN" | docker login -u "$REMOTE_DOCKER_HUB_USERNAME" --password-stdin
+            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            if [ "$(docker ps -aq -f name=^${{ env.DB_CONTAINER_NAME }}$)" ]; then
+              if [ ! "$(docker ps -q -f name=^${{ env.DB_CONTAINER_NAME }}$)" ]; then
+                docker start ${{ env.DB_CONTAINER_NAME }}
+              fi
+            else
+              docker run -d \
+                --name=${{ env.DB_CONTAINER_NAME }} \
+                --network=app_network \
+                -p ${{ env.DB_PORT }}:5432 \
+                -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data \
+                -e POSTGRES_DB=${{ env.DB_NAME }} \ 
+                -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
+                -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
+                --restart always \
+                postgres:15-alpine
+            fi
+
+            until docker exec ${{ env.DB_CONTAINER_NAME }} pg_isready -U "$REMOTE_POSTGRES_USER" -d "${{ env.DB_NAME }}"; do
+              sleep 2
+            done
+
+            docker run -d \
+              --name=${{ env.CONTAINER_NAME }} \
+              --network=app_network \
+              -p ${{ env.APP_PORT }}:8080 \
+              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
+              -e POSTGRES_PORT=5432 \
+              -e POSTGRES_DB=${{ env.DB_NAME }} \
+              -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
+              -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
+              --restart always \
+              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            docker ps
