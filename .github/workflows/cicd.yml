@@ -69,6 +69,7 @@ jobs:
           DOCKER_HUB_REPO: ${{ secrets.DOCKER_HUB_REPO_NAME }}
         run: |
           echo "IMAGE_NAME=$DOCKER_HUB_USER/$DOCKER_HUB_REPO" >> "$GITHUB_ENV"
+
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "APP_PORT=4000" >> "$GITHUB_ENV"
             echo "CONTAINER_NAME=be_inventory_catalog_prod" >> "$GITHUB_ENV"
@@ -123,11 +124,13 @@ jobs:
           REMOTE_DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
           REMOTE_POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           REMOTE_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REMOTE_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REMOTE_JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD
+          envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD,REMOTE_JWT_SECRET,REMOTE_JWT_EXPIRATION
           script: |
             set -euo pipefail
 
@@ -135,7 +138,9 @@ jobs:
             docker rm ${{ env.CONTAINER_NAME }} || true
 
             docker network create app_network || true
+
             echo "$REMOTE_DOCKER_HUB_ACCESS_TOKEN" | docker login -u "$REMOTE_DOCKER_HUB_USERNAME" --password-stdin
+
             docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
             if [ "$(docker ps -aq -f name=^${{ env.DB_CONTAINER_NAME }}$)" ]; then
@@ -143,15 +148,26 @@ jobs:
                 docker start ${{ env.DB_CONTAINER_NAME }}
               fi
             else
-              docker run -d --name=${{ env.DB_CONTAINER_NAME }} --network=app_network -p ${{ env.DB_PORT }}:5432 -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data -e POSTGRES_DB=${{ env.DB_NAME }} -e POSTGRES_USER="$REMOTE_POSTGRES_USER" -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" --restart always postgres:15-alpine
+              docker run -d \
+                --name=${{ env.DB_CONTAINER_NAME }} \
+                --network=app_network \
+                -p ${{ env.DB_PORT }}:5432 \
+                -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data \
+                -e POSTGRES_DB=${{ env.DB_NAME }} \
+                -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
+                -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
+                --restart always \
+                postgres:15-alpine
             fi
 
             DB_READY=0
+
             for i in $(seq 1 30); do
               if docker exec ${{ env.DB_CONTAINER_NAME }} pg_isready -U "$REMOTE_POSTGRES_USER" -d "${{ env.DB_NAME }}"; then
                 DB_READY=1
                 break
               fi
+
               echo "Waiting for database readiness ($i/30)..."
               sleep 2
             done
@@ -161,7 +177,19 @@ jobs:
               docker logs ${{ env.DB_CONTAINER_NAME }} || true
               exit 1
             fi
-            
-            docker run -d --name=${{ env.CONTAINER_NAME }} --network=app_network -p ${{ env.APP_PORT }}:8080 -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} -e POSTGRES_PORT=5432 -e POSTGRES_DB=${{ env.DB_NAME }} -e POSTGRES_USER="$REMOTE_POSTGRES_USER" -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" --restart always ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            docker run -d \
+              --name=${{ env.CONTAINER_NAME }} \
+              --network=app_network \
+              -p ${{ env.APP_PORT }}:8080 \
+              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
+              -e POSTGRES_PORT=5432 \
+              -e POSTGRES_DB=${{ env.DB_NAME }} \
+              -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
+              -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
+              -e JWT_SECRET="$REMOTE_JWT_SECRET" \
+              -e JWT_EXPIRATION="$REMOTE_JWT_EXPIRATION" \
+              --restart always \
+              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
             docker ps
