@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
+import id.ac.ui.cs.advprog.beinventorycatalog.factory.ProductFactory;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import java.time.LocalDate;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
@@ -26,6 +27,7 @@ import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -36,6 +38,9 @@ class ProductControllerTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private ProductFactory productFactory;
 
     @Mock
     private Authentication authentication;
@@ -66,6 +71,16 @@ class ProductControllerTest {
         productDTO.setStock(10);
         productDTO.setOriginCountry("Indonesia");
         productDTO.setPurchaseDate(LocalDate.now());
+
+        lenient().when(productFactory.createProduct(
+                productDTO.getName(),
+                productDTO.getDescription(),
+                productDTO.getPrice(),
+                productDTO.getStock(),
+                "jastiper-123",
+                productDTO.getOriginCountry(),
+                productDTO.getPurchaseDate()))
+                .thenReturn(product);
     }
 
     @Test
@@ -87,6 +102,25 @@ class ProductControllerTest {
                 "userId", "11111111-1111-1111-1111-111111111111",
                 "subject", "jastiper@example.com"
         ));
+        Product productWithUserId = Product.builder()
+                .id(product.getId())
+                .name(productDTO.getName())
+                .description(productDTO.getDescription())
+                .price(productDTO.getPrice())
+                .stock(productDTO.getStock())
+                .originCountry(productDTO.getOriginCountry())
+                .purchaseDate(productDTO.getPurchaseDate())
+                .jastiperId("11111111-1111-1111-1111-111111111111")
+                .build();
+        when(productFactory.createProduct(
+                productDTO.getName(),
+                productDTO.getDescription(),
+                productDTO.getPrice(),
+                productDTO.getStock(),
+                "11111111-1111-1111-1111-111111111111",
+                productDTO.getOriginCountry(),
+                productDTO.getPurchaseDate()))
+                .thenReturn(productWithUserId);
         when(productService.createProduct(any(Product.class))).thenReturn(product);
 
         ResponseEntity<Product> response = productController.createProduct(authentication, productDTO);
@@ -95,6 +129,66 @@ class ProductControllerTest {
         ArgumentCaptor<Product> captor = forClass(Product.class);
         verify(productService).createProduct(captor.capture());
         assertEquals("11111111-1111-1111-1111-111111111111", captor.getValue().getJastiperId());
+    }
+
+    @Test
+    void testCreateProductFallsBackToNameWhenDetailsDoNotContainUserId() {
+        when(authentication.getName()).thenReturn("fallback-jastiper");
+        when(authentication.getDetails()).thenReturn(Map.of("subject", "jastiper@example.com"));
+        Product fallbackProduct = Product.builder()
+                .id(product.getId())
+                .name(productDTO.getName())
+                .description(productDTO.getDescription())
+                .price(productDTO.getPrice())
+                .stock(productDTO.getStock())
+                .originCountry(productDTO.getOriginCountry())
+                .purchaseDate(productDTO.getPurchaseDate())
+                .jastiperId("fallback-jastiper")
+                .build();
+        when(productFactory.createProduct(
+                productDTO.getName(),
+                productDTO.getDescription(),
+                productDTO.getPrice(),
+                productDTO.getStock(),
+                "fallback-jastiper",
+                productDTO.getOriginCountry(),
+                productDTO.getPurchaseDate()))
+                .thenReturn(fallbackProduct);
+        when(productService.createProduct(any(Product.class))).thenReturn(fallbackProduct);
+
+        ResponseEntity<Product> response = productController.createProduct(authentication, productDTO);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("fallback-jastiper", response.getBody().getJastiperId());
+    }
+
+    @Test
+    void testCreateProductWithNullAuthenticationUsesEmptyOwner() {
+        Product anonymousProduct = Product.builder()
+                .id(product.getId())
+                .name(productDTO.getName())
+                .description(productDTO.getDescription())
+                .price(productDTO.getPrice())
+                .stock(productDTO.getStock())
+                .originCountry(productDTO.getOriginCountry())
+                .purchaseDate(productDTO.getPurchaseDate())
+                .jastiperId("")
+                .build();
+        when(productFactory.createProduct(
+                productDTO.getName(),
+                productDTO.getDescription(),
+                productDTO.getPrice(),
+                productDTO.getStock(),
+                "",
+                productDTO.getOriginCountry(),
+                productDTO.getPurchaseDate()))
+                .thenReturn(anonymousProduct);
+        when(productService.createProduct(any(Product.class))).thenReturn(anonymousProduct);
+
+        ResponseEntity<Product> response = productController.createProduct(null, productDTO);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("", response.getBody().getJastiperId());
     }
 
     @Test
@@ -212,6 +306,28 @@ class ProductControllerTest {
         assertEquals(2, response.getBody().size());
         verify(productService).getProductsByJastiper("jastiper@example.com");
         verify(productService).getProductsByJastiper("11111111-1111-1111-1111-111111111111");
+    }
+
+    @Test
+    void testGetMyCatalogWithNullAuthenticationReturnsEmptyList() {
+        ResponseEntity<List<Product>> response = productController.getMyCatalog(null);
+
+        assertNotNull(response.getBody());
+        assertEquals(0, response.getBody().size());
+    }
+
+    @Test
+    void testGetMyCatalogIgnoresBlankAndNonStringIdentityCandidates() {
+        when(authentication.getName()).thenReturn(" ");
+        when(authentication.getDetails()).thenReturn(Map.of(
+                "userId", 12345,
+                "subject", " "
+        ));
+
+        ResponseEntity<List<Product>> response = productController.getMyCatalog(authentication);
+
+        assertNotNull(response.getBody());
+        assertEquals(0, response.getBody().size());
     }
 
     @Test
