@@ -130,12 +130,10 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          command_timeout: 20m
           envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD,REMOTE_JWT_SECRET,REMOTE_JWT_EXPIRATION
           script: |
             set -euo pipefail
-
-            docker stop ${{ env.CONTAINER_NAME }} || true
-            docker rm ${{ env.CONTAINER_NAME }} || true
 
             docker network create app_network || true
 
@@ -177,6 +175,49 @@ jobs:
               docker logs ${{ env.DB_CONTAINER_NAME }} || true
               exit 1
             fi
+
+            echo "Starting Smoke Test Container to verify health before swapping..."
+            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
+            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
+
+            docker run -d \
+              --name=${{ env.CONTAINER_NAME }}_smoke \
+              --network=app_network \
+              -p 9999:8080 \
+              -e SERVER_PORT=8080 \
+              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
+              -e POSTGRES_PORT=5432 \
+              -e POSTGRES_DB=${{ env.DB_NAME }} \
+              -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
+              -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
+              -e JWT_SECRET="$REMOTE_JWT_SECRET" \
+              -e JWT_EXPIRATION="$REMOTE_JWT_EXPIRATION" \
+              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+              
+            SMOKE_READY=0
+            for i in $(seq 1 30); do
+              if curl --fail --silent --show-error --max-time 2 http://localhost:9999/actuator/health | grep '"status":"UP"'; then
+                SMOKE_READY=1
+                break
+              fi
+              echo "Waiting for new image to be healthy ($i/30)..."
+              sleep 3
+            done
+
+            if [ "$SMOKE_READY" -ne 1 ]; then
+              echo "Health check failed! Rolling back (aborting deployment). Old container remains active."
+              docker logs --tail 200 ${{ env.CONTAINER_NAME }}_smoke || true
+              docker stop ${{ env.CONTAINER_NAME }}_smoke || true
+              docker rm ${{ env.CONTAINER_NAME }}_smoke || true
+              exit 1
+            fi
+
+            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
+            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
+            
+            echo "Health check passed. Swapping containers..."
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
 
             docker run -d \
               --name=${{ env.CONTAINER_NAME }} \

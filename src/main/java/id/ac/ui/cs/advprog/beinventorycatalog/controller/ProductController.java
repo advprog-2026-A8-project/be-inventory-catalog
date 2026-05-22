@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.beinventorycatalog.controller;
 
 import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
+import id.ac.ui.cs.advprog.beinventorycatalog.factory.ProductFactory;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import id.ac.ui.cs.advprog.beinventorycatalog.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductFactory productFactory;
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('JASTIPER')")
@@ -33,15 +35,14 @@ public class ProductController {
 
         String userId = resolvePreferredUserId(authentication);
 
-        Product product = Product.builder()
-                .name(productDTO.getName())
-                .description(productDTO.getDescription())
-                .price(productDTO.getPrice())
-                .stock(productDTO.getStock())
-                .originCountry(productDTO.getOriginCountry())
-                .purchaseDate(productDTO.getPurchaseDate())
-                .jastiperId(userId)
-                .build();
+        Product product = productFactory.createProduct(
+                productDTO.getName(),
+                productDTO.getDescription(),
+                productDTO.getPrice(),
+                productDTO.getStock(),
+                userId,
+                productDTO.getOriginCountry(),
+                productDTO.getPurchaseDate());
 
         Product savedProduct = productService.createProduct(product);
         return ResponseEntity.ok(savedProduct);

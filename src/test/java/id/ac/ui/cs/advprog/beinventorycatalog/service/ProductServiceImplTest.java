@@ -4,6 +4,8 @@ import id.ac.ui.cs.advprog.beinventorycatalog.dto.ProductDTO;
 import id.ac.ui.cs.advprog.beinventorycatalog.model.Product;
 import java.time.LocalDate;
 import id.ac.ui.cs.advprog.beinventorycatalog.repository.ProductRepository;
+import id.ac.ui.cs.advprog.beinventorycatalog.strategy.StockValidationStrategy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,12 @@ class ProductServiceImplTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private StockValidationStrategy stockValidationStrategy;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ProductServiceImpl productService;
@@ -55,6 +63,9 @@ class ProductServiceImplTest {
         productDTO.setStock(5);
         productDTO.setOriginCountry("Indonesia");
         productDTO.setPurchaseDate(LocalDate.now());
+
+        lenient().when(stockValidationStrategy.isValid(anyInt()))
+                .thenAnswer(invocation -> invocation.getArgument(0, Integer.class) > 0);
     }
 
     @Test
@@ -65,6 +76,7 @@ class ProductServiceImplTest {
 
         assertNotNull(savedProduct);
         verify(productRepository, times(1)).save(product);
+        verify(eventPublisher, times(1)).publishEvent(any());
     }
 
     @Test

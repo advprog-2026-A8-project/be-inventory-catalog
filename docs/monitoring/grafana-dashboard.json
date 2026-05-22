@@ -1,0 +1,142 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{application=\"be-inventory-catalog\"}[5m]) / rate(http_server_requests_seconds_count{application=\"be-inventory-catalog\"}[5m]) * 1000",
+          "legendFormat": "average latency",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Average Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"be-inventory-catalog\"}[5m]))",
+          "legendFormat": "requests/sec",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_bucket{application=\"be-inventory-catalog\",le=\"0.5\"}[5m])) / sum(rate(http_server_requests_seconds_count{application=\"be-inventory-catalog\"}[5m]))",
+          "legendFormat": "APDEX proxy <= 500 ms",
+          "refId": "A"
+        }
+      ],
+      "title": "APDEX Proxy",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"be-inventory-catalog\"}",
+          "legendFormat": "active DB connections",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_connections_idle{application=\"be-inventory-catalog\"}",
+          "legendFormat": "idle DB connections",
+          "refId": "B"
+        }
+      ],
+      "title": "Database Connection Pool",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 40,
+  "tags": [
+    "inventory",
+    "advanced-programming"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "BE Inventory Catalog Observability",
+  "uid": "be-inventory-catalog",
+  "version": 1,
+  "weekStart": ""
+}

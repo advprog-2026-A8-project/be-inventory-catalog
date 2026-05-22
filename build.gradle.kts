@@ -45,6 +45,10 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
     implementation("net.bytebuddy:byte-buddy:1.15.11")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
     val jjwtVersion = "0.11.5"
     implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
