@@ -56,38 +56,13 @@ jobs:
           SONAR_PR_BASE: ${{ github.base_ref }}
           SONAR_REPOSITORY: ${{ github.repository }}
 
-  build-and-deploy:
-    name: Build and Deploy
+  build-and-push:
+    name: Build and Push Image
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Set environment variables
-        env:
-          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_HUB_REPO: ${{ secrets.DOCKER_HUB_REPO_NAME }}
-        run: |
-          echo "IMAGE_NAME=$DOCKER_HUB_USER/$DOCKER_HUB_REPO" >> "$GITHUB_ENV"
-
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "APP_PORT=4000" >> "$GITHUB_ENV"
-            echo "CONTAINER_NAME=be_inventory_catalog_prod" >> "$GITHUB_ENV"
-            echo "IMAGE_TAG=latest" >> "$GITHUB_ENV"
-            echo "DB_CONTAINER_NAME=postgres_inventory_catalog_prod" >> "$GITHUB_ENV"
-            echo "DB_NAME=inventory_catalog_prod" >> "$GITHUB_ENV"
-            echo "DB_PORT=4001" >> "$GITHUB_ENV"
-            echo "DB_VOLUME=postgres_inventory_catalog_prod_data" >> "$GITHUB_ENV"
-          else
-            echo "APP_PORT=4002" >> "$GITHUB_ENV"
-            echo "CONTAINER_NAME=be_inventory_catalog_staging" >> "$GITHUB_ENV"
-            echo "IMAGE_TAG=staging" >> "$GITHUB_ENV"
-            echo "DB_CONTAINER_NAME=postgres_inventory_catalog_staging" >> "$GITHUB_ENV"
-            echo "DB_NAME=inventory_catalog_staging" >> "$GITHUB_ENV"
-            echo "DB_PORT=4003" >> "$GITHUB_ENV"
-            echo "DB_VOLUME=postgres_inventory_catalog_staging_data" >> "$GITHUB_ENV"
-          fi
-
       - name: Check out code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -104,6 +79,14 @@ jobs:
       - name: Build application jar
         run: ./gradlew clean bootJar
 
+      - name: Set image variables
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_REPO: ${{ secrets.DOCKER_HUB_REPO_NAME }}
+        run: |
+          echo "IMAGE_NAME=$DOCKER_HUB_USER/$DOCKER_HUB_REPO" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=latest" >> "$GITHUB_ENV"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
@@ -117,7 +100,14 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
-      - name: Releasing New Version
+  deploy-main:
+    name: Deploy Main
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to server
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           REMOTE_DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -125,113 +115,75 @@ jobs:
           REMOTE_POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           REMOTE_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           REMOTE_JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REMOTE_JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
+          REMOTE_DOCKER_HUB_REPO_NAME: ${{ secrets.DOCKER_HUB_REPO_NAME }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 20m
-          envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD,REMOTE_JWT_SECRET,REMOTE_JWT_EXPIRATION
+          envs: REMOTE_DOCKER_HUB_USERNAME,REMOTE_DOCKER_HUB_ACCESS_TOKEN,REMOTE_POSTGRES_USER,REMOTE_POSTGRES_PASSWORD,REMOTE_JWT_SECRET,REMOTE_DOCKER_HUB_REPO_NAME
           script: |
             set -euo pipefail
+
+            IMAGE_NAME="${REMOTE_DOCKER_HUB_USERNAME}/${REMOTE_DOCKER_HUB_REPO_NAME}"
+            IMAGE_TAG="latest"
+            APP_CONTAINER_NAME="be_inventory_catalog_prod"
+            APP_PORT="4000"
+            DB_CONTAINER_NAME="postgres_inventory_catalog_prod"
+            DB_NAME="inventorydb"
+            DB_PORT="4001"
+            DB_VOLUME="postgres_inventory_catalog_prod_data"
 
             docker network create app_network || true
 
             echo "$REMOTE_DOCKER_HUB_ACCESS_TOKEN" | docker login -u "$REMOTE_DOCKER_HUB_USERNAME" --password-stdin
+            docker pull "$IMAGE_NAME:$IMAGE_TAG"
 
-            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-
-            if [ "$(docker ps -aq -f name=^${{ env.DB_CONTAINER_NAME }}$)" ]; then
-              if [ ! "$(docker ps -q -f name=^${{ env.DB_CONTAINER_NAME }}$)" ]; then
-                docker start ${{ env.DB_CONTAINER_NAME }}
+            if [ "$(docker ps -aq -f name=^${DB_CONTAINER_NAME}$)" ]; then
+              if [ ! "$(docker ps -q -f name=^${DB_CONTAINER_NAME}$)" ]; then
+                docker start "$DB_CONTAINER_NAME"
               fi
             else
               docker run -d \
-                --name=${{ env.DB_CONTAINER_NAME }} \
+                --name="$DB_CONTAINER_NAME" \
                 --network=app_network \
-                -p ${{ env.DB_PORT }}:5432 \
-                -v ${{ env.DB_VOLUME }}:/var/lib/postgresql/data \
-                -e POSTGRES_DB=${{ env.DB_NAME }} \
+                -p "$DB_PORT:5432" \
+                -v "$DB_VOLUME:/var/lib/postgresql/data" \
+                -e POSTGRES_DB="$DB_NAME" \
                 -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
                 -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
                 --restart always \
                 postgres:15-alpine
             fi
 
-            DB_READY=0
-
             for i in $(seq 1 30); do
-              if docker exec ${{ env.DB_CONTAINER_NAME }} pg_isready -U "$REMOTE_POSTGRES_USER" -d "${{ env.DB_NAME }}"; then
-                DB_READY=1
+              if docker exec "$DB_CONTAINER_NAME" pg_isready -U "$REMOTE_POSTGRES_USER" -d "$DB_NAME"; then
                 break
               fi
-
+              if [ "$i" -eq 30 ]; then
+                echo "Database failed to become ready."
+                docker logs "$DB_CONTAINER_NAME" || true
+                exit 1
+              fi
               echo "Waiting for database readiness ($i/30)..."
               sleep 2
             done
 
-            if [ "$DB_READY" -ne 1 ]; then
-              echo "Database failed to become ready."
-              docker logs ${{ env.DB_CONTAINER_NAME }} || true
-              exit 1
-            fi
-
-            echo "Starting Smoke Test Container to verify health before swapping..."
-            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
-            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
+            docker stop "$APP_CONTAINER_NAME" || true
+            docker rm "$APP_CONTAINER_NAME" || true
 
             docker run -d \
-              --name=${{ env.CONTAINER_NAME }}_smoke \
+              --name="$APP_CONTAINER_NAME" \
               --network=app_network \
-              -p 9999:8080 \
-              -e SERVER_PORT=8080 \
-              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
+              -p "$APP_PORT:4002" \
+              -e SERVER_PORT=4002 \
+              -e POSTGRES_HOST="$DB_CONTAINER_NAME" \
               -e POSTGRES_PORT=5432 \
-              -e POSTGRES_DB=${{ env.DB_NAME }} \
+              -e POSTGRES_DB="$DB_NAME" \
               -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
               -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
               -e JWT_SECRET="$REMOTE_JWT_SECRET" \
-              -e JWT_EXPIRATION="$REMOTE_JWT_EXPIRATION" \
-              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-              
-            SMOKE_READY=0
-            for i in $(seq 1 30); do
-              if curl --fail --silent --show-error --max-time 2 http://localhost:9999/actuator/health | grep '"status":"UP"'; then
-                SMOKE_READY=1
-                break
-              fi
-              echo "Waiting for new image to be healthy ($i/30)..."
-              sleep 3
-            done
-
-            if [ "$SMOKE_READY" -ne 1 ]; then
-              echo "Health check failed! Rolling back (aborting deployment). Old container remains active."
-              docker logs --tail 200 ${{ env.CONTAINER_NAME }}_smoke || true
-              docker stop ${{ env.CONTAINER_NAME }}_smoke || true
-              docker rm ${{ env.CONTAINER_NAME }}_smoke || true
-              exit 1
-            fi
-
-            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
-            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
-            
-            echo "Health check passed. Swapping containers..."
-            docker stop ${{ env.CONTAINER_NAME }} || true
-            docker rm ${{ env.CONTAINER_NAME }} || true
-
-            docker run -d \
-              --name=${{ env.CONTAINER_NAME }} \
-              --network=app_network \
-              -p ${{ env.APP_PORT }}:8080 \
-              -e SERVER_PORT=8080 \
-              -e POSTGRES_HOST=${{ env.DB_CONTAINER_NAME }} \
-              -e POSTGRES_PORT=5432 \
-              -e POSTGRES_DB=${{ env.DB_NAME }} \
-              -e POSTGRES_USER="$REMOTE_POSTGRES_USER" \
-              -e POSTGRES_PASSWORD="$REMOTE_POSTGRES_PASSWORD" \
-              -e JWT_SECRET="$REMOTE_JWT_SECRET" \
-              -e JWT_EXPIRATION="$REMOTE_JWT_EXPIRATION" \
               --restart always \
-              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+              "$IMAGE_NAME:$IMAGE_TAG"
 
             docker ps
