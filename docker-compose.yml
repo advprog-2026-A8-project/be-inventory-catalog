@@ -35,5 +35,33 @@ services:
     ports:
       - "4002:4002"
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: inventory-prometheus-dev
+    profiles: ["observability"]
+    depends_on:
+      - inventory-app
+    volumes:
+      - ./docs/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: inventory-grafana-dev
+    profiles: ["observability"]
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docs/monitoring/grafana-dashboard.json:/var/lib/grafana/dashboards/inventory-catalog.json:ro
+    ports:
+      - "3000:3000"
+
 volumes:
   inventory_pgdata:
+  grafana_data:
