@@ -195,23 +195,25 @@ jobs:
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
               
             SMOKE_READY=0
-            for i in $(seq 1 15); do
+            for i in $(seq 1 30); do
               if curl --fail --silent --show-error --max-time 2 http://localhost:9999/actuator/health | grep '"status":"UP"'; then
                 SMOKE_READY=1
                 break
               fi
-              echo "Waiting for new image to be healthy ($i/15)..."
+              echo "Waiting for new image to be healthy ($i/30)..."
               sleep 3
             done
-
-            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
-            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
 
             if [ "$SMOKE_READY" -ne 1 ]; then
               echo "Health check failed! Rolling back (aborting deployment). Old container remains active."
               docker logs --tail 200 ${{ env.CONTAINER_NAME }}_smoke || true
+              docker stop ${{ env.CONTAINER_NAME }}_smoke || true
+              docker rm ${{ env.CONTAINER_NAME }}_smoke || true
               exit 1
             fi
+
+            docker stop ${{ env.CONTAINER_NAME }}_smoke || true
+            docker rm ${{ env.CONTAINER_NAME }}_smoke || true
             
             echo "Health check passed. Swapping containers..."
             docker stop ${{ env.CONTAINER_NAME }} || true
